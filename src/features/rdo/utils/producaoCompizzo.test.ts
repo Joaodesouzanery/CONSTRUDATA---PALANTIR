@@ -4,7 +4,10 @@ import type { RdoCompizzoProducaoRow } from '@/types'
 import {
   areaExecutada, ehLinhaDeArea, linhasComQuantidade, metragemDaProducao,
   unidadeDaLinha, unidadeNoNome,
+  OPCAO_AVULSO, classificacaoDaLinha, linhaVazia, linhasSemDestino,
 } from './producaoCompizzo'
+import { FASES_PADRAO } from '../data/fasesPadrao'
+import { idDaFasePadrao } from '../data/idDaFase'
 
 const l = (servico: string, quantidade: string, unidade?: string): RdoCompizzoProducaoRow =>
   ({ servico, quantidade, unidade } as RdoCompizzoProducaoRow)
@@ -135,5 +138,80 @@ describe('linhasComQuantidade', () => {
 
   it('undefined não quebra', () => {
     assert.deepEqual(linhasComQuantidade(undefined), [])
+  })
+})
+
+// ─── 🔴 A classificação da linha ──────────────────────────────────────────────
+//
+// O `<select>` de fase passou a abrir em "Selecionar Fase", e o serviço avulso foi para o fim da
+// lista. Antes disso, `faseId` ausente queria dizer duas coisas ao mesmo tempo — "ainda não
+// escolhi" e "é avulso" — e enquanto a primeira opção ERA o avulso, dava na mesma. Agora não dá.
+
+describe('classificacaoDaLinha', () => {
+  it('🔴 RDO antigo reabre como AVULSO, com o nome do serviço na tela', () => {
+    // Esta é a linha que o RDO de setembro tem gravada: sem `faseId`, sem `classificacao`, com
+    // nome. Se ela derivasse para "não escolhida", o documento já assinado reabriria em branco e
+    // quem salvasse o apagaria de vez.
+    assert.equal(classificacaoDaLinha({ servico: 'Pintura Vermelha (m²)' } as RdoCompizzoProducaoRow), 'avulso')
+    assert.equal(classificacaoDaLinha({ servico: '  ' } as RdoCompizzoProducaoRow), 'nao-escolhida')
+  })
+
+  it('🔴 a fase manda sobre a classificação — estado inconsistente não tira a linha da meta', () => {
+    assert.equal(
+      classificacaoDaLinha({ faseId: 'f-1', classificacao: 'avulso', servico: 'x' } as RdoCompizzoProducaoRow),
+      'fase',
+    )
+  })
+
+  it('a escolha explícita vence a derivação pelo nome', () => {
+    assert.equal(
+      classificacaoDaLinha({ servico: 'Piso epóxi', classificacao: 'nao-escolhida' } as RdoCompizzoProducaoRow),
+      'nao-escolhida',
+    )
+    assert.equal(classificacaoDaLinha({ servico: '', classificacao: 'avulso' } as RdoCompizzoProducaoRow), 'avulso')
+  })
+
+  it('🔴 o valor do avulso NUNCA colide com o id de uma fase', () => {
+    // Se colidisse, a metragem de uma fase de verdade viraria avulsa — em silêncio, e sem entrar
+    // na meta da obra.
+    for (const f of FASES_PADRAO) assert.notEqual(idDaFasePadrao(f.nome), OPCAO_AVULSO)
+    assert.ok(!OPCAO_AVULSO.startsWith('fase-padrao:'))
+  })
+})
+
+describe('linhaVazia e linhasSemDestino', () => {
+  it('linha sem classificação e sem nada digitado é ruído', () => {
+    assert.equal(linhaVazia({ servico: '', quantidade: '' } as RdoCompizzoProducaoRow), true)
+  })
+
+  it('🔴 meta digitada com a quantidade em branco NÃO é linha vazia', () => {
+    // Descartá-la apagaria a meta da atividade no Planejamento — informação que alguém digitou.
+    assert.equal(
+      linhaVazia({ servico: '', quantidade: '', quantidadePrevista: 300 } as RdoCompizzoProducaoRow),
+      false,
+    )
+  })
+
+  it('linha com fase ou com nome nunca é vazia', () => {
+    assert.equal(linhaVazia({ faseId: 'f-1', servico: 'Primer', quantidade: '' } as RdoCompizzoProducaoRow), false)
+    assert.equal(linhaVazia({ servico: 'Piso epóxi', quantidade: '' } as RdoCompizzoProducaoRow), false)
+  })
+
+  it('🔴 quantidade SEM destino é apontada — é o caso que o "Selecionar Fase" cria', () => {
+    const rows = [
+      { servico: '', quantidade: '120', classificacao: 'nao-escolhida' },          // 0 · sem nada
+      { faseId: 'f-1', servico: 'Primer', quantidade: '80' },                       // 1 · ok
+      { servico: '', quantidade: '40', classificacao: 'avulso' },                   // 2 · avulso sem nome
+      { servico: 'Piso epóxi', quantidade: '10', classificacao: 'avulso' },         // 3 · ok
+      { servico: '', quantidade: '', classificacao: 'nao-escolhida' },              // 4 · vazia, não acusa
+    ] as RdoCompizzoProducaoRow[]
+    assert.deepEqual(linhasSemDestino(rows), [0, 2],
+      'um número sem fase e sem nome é gravado, impresso, e o sistema não sabe explicá-lo: não '
+      + 'entra na meta nem no Planejamento')
+  })
+
+  it('serviço avulso COM nome nunca é acusado — o cliente o manteve de propósito', () => {
+    const rows = [{ servico: 'Limpeza fina', quantidade: '1', classificacao: 'avulso' }] as RdoCompizzoProducaoRow[]
+    assert.deepEqual(linhasSemDestino(rows), [])
   })
 })

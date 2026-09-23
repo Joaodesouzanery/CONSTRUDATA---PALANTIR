@@ -2591,6 +2591,24 @@ export interface RdoCompizzoProducaoRow {
    * não precisa ter. Quando existe, é por ela que a meta da Torre enxerga o realizado.
    */
   faseId?:    string
+  /**
+   * Como a linha foi classificada NA TELA: uma fase do catálogo, um serviço avulso, ou ainda nada.
+   *
+   * ⚠️ Existe porque `faseId` ausente significava DUAS coisas — "ainda não escolhi" e "é avulso".
+   * Enquanto a primeira opção do `<select>` era o próprio avulso, dava na mesma; com o default
+   * virando "Selecionar Fase", uma linha por classificar entraria no documento com número e não
+   * entraria nem na meta nem no Planejamento.
+   *
+   * ⚠️ E é campo PRÓPRIO, não um valor-sentinela em `faseId`: `rdosReportExport.ts` decide o
+   * título da seção impressa com `producao.some((p) => !!p.faseId)`, e
+   * `realizadoPorFaseNoPeriodo` acumula a metragem por `faseId`. Um sentinela ali faria todo RDO
+   * imprimir "Fases do dia" e criaria uma chave fantasma na meta da obra.
+   *
+   * ⚠️ Ausente = RDO anterior a esta mudança. NÃO tratar como "não escolhida": use
+   * `classificacaoDaLinha()`, que deriva pelo `servico` — senão reabrir um RDO de agosto mostraria
+   * seis linhas em branco, e quem salvasse apagaria o que já estava assinado.
+   */
+  classificacao?: 'fase' | 'avulso' | 'nao-escolhida'
   servico:    string
   quantidade: string
   planningActivityId?:  string   // atividade-mestre que ESTA linha avança (várias atividades por RDO)

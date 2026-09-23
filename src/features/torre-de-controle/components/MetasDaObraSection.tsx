@@ -22,6 +22,7 @@ import { FASES_PADRAO, FASE_POLIMENTO } from '@/features/rdo/data/fasesPadrao'
 import { idDaFasePadrao } from '@/features/rdo/data/idDaFase'
 import {
   realizadoPorFaseNoPeriodo, resumoDaMeta, conferirCatalogo, ritmoDiarioDaFase, TEXTO_SEM_RECEITA,
+  precoMedioDoContratoM2,
 } from '../utils/metaDaObra'
 import { formatarMetragem } from '@/lib/unidadesMedida'
 import { vigenciaDaObra } from '../utils/obraBudget'
@@ -109,6 +110,9 @@ export function MetasDaObraSection({ site }: { site: ConstructionSite }) {
             <ModoDePreco
               modo={modo} site={site} problemas={problemas}
               onTrocar={(m) => salvar({ modoPrecoFases: m })}
+              onSalvarPreco={(v) => salvar({ precoM2: v })}
+              onAbrirFases={() => setAbrindoFases(true)}
+              fasesSemPreco={fases.filter((f) => f.ativa && f.precoUnitario == null).length}
               podeEscrever={permissao.pode}
             />
 
@@ -176,23 +180,19 @@ function SemCatalogo({ onCriar, podeEscrever }: { onCriar: () => void; podeEscre
 
 // ─── Modo de preço ────────────────────────────────────────────────────────────
 
-function ModoDePreco({ modo, site, problemas, onTrocar, podeEscrever }: {
+function ModoDePreco({ modo, site, problemas, onTrocar, onSalvarPreco, onAbrirFases, fasesSemPreco, podeEscrever }: {
   modo: ModoPrecoFases
   site: ConstructionSite
   problemas: ReturnType<typeof conferirCatalogo>
   onTrocar: (m: ModoPrecoFases) => void
+  onSalvarPreco: (v: number | undefined) => void
+  onAbrirFases: () => void
+  fasesSemPreco: number
   podeEscrever: boolean
 }) {
   // ⚠️ A divergência com o contrato, dita. A meta é independente por escolha do cliente — e é
   // justamente por isso que os dois preços precisam aparecer juntos quando existem os dois.
-  const precoDoContrato = useMemo(() => {
-    const servicos = site.contrato?.services ?? []
-    const deArea = servicos.filter((s) => s.unidade === 'm²' && s.valorUnitario > 0)
-    if (deArea.length === 0) return null
-    const qtd = deArea.reduce((s, x) => s + (x.qtdContrato || 0), 0)
-    if (qtd <= 0) return null
-    return deArea.reduce((s, x) => s + (x.qtdContrato || 0) * x.valorUnitario, 0) / qtd
-  }, [site.contrato])
+  const precoDoContrato = useMemo(() => precoMedioDoContratoM2(site), [site])
 
   const divergente = precoDoContrato != null && site.precoM2 != null
     && Math.abs(precoDoContrato - site.precoM2) > 0.01
@@ -233,6 +233,50 @@ function ModoDePreco({ modo, site, problemas, onTrocar, podeEscrever }: {
           </>
         )}
       </p>
+
+      {/* ─── O preço, editável AQUI ────────────────────────────────────────────────────
+          ⚠️ Este bloco existia dizendo "a obra ainda não tem preço por m²" numa tela onde não
+          havia nada a fazer. O campo do cadastro (`ObraDialog`) some quando a obra TEM contrato —
+          trava deliberada, para não existirem dois lugares dizendo quanto a obra vale —, e o
+          efeito colateral era que toda obra com contrato ficava sem como precificar a meta: a
+          receita saía `null` para sempre e não havia tela nenhuma onde consertar.
+
+          ⚠️ É o MESMO `site.precoM2` do cadastro, de propósito. Um `precoMetaM2` separado seria a
+          quarta resposta para "quanto vale o m² desta obra" (contrato → plano → obra → meta), e
+          `obraBudget.ts` já documenta o estrago das três primeiras. Mudar aqui muda no RDO
+          também — está escrito ao lado do campo por isso. */}
+      {modo === 'peso' ? (
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <label className="text-[11px] text-[#adadad]">
+            Preço do piso pronto (R$/m²)
+            <CampoPrecoM2 valor={site.precoM2} podeEscrever={podeEscrever} onCommit={onSalvarPreco} />
+          </label>
+          {precoDoContrato != null && (
+            <button
+              type="button" disabled={!podeEscrever} onClick={() => onSalvarPreco(precoDoContrato)}
+              title="Copia o preço médio do contrato para a obra. É uma semente, não um vínculo: depois de copiado, os dois seguem independentes."
+              className="rounded-lg border border-[#525252] px-2.5 py-1.5 text-[11px] text-[#adadad] hover:text-[#f5f5f5] disabled:opacity-40"
+            >
+              Usar o do contrato ({formatCurrency(precoDoContrato)}/m²)
+            </button>
+          )}
+          <span className="text-[10px] leading-4 text-[#6b6b6b]">
+            É o mesmo preço do cadastro da obra — o RDO também o usa.
+          </span>
+        </div>
+      ) : (
+        /* ⚠️ No modo preço-próprio o R$/m² da obra NÃO entra na conta (`receitaDaFase`). Mostrar o
+           campo aqui faria a pessoa digitar um número que não muda nada. */
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[#adadad]">
+          <span>Neste modo o preço é <b>por fase</b>, na unidade dela — o R$/m² da obra não é usado.</span>
+          <button
+            type="button" onClick={onAbrirFases}
+            className="inline-flex items-center gap-1 rounded-lg border border-[#525252] px-2.5 py-1 text-[11px] hover:text-[#f5f5f5]"
+          >
+            <Layers size={11} /> Preços por fase{fasesSemPreco > 0 ? ` (${fasesSemPreco} sem preço)` : ''}
+          </button>
+        </div>
+      )}
 
       {divergente && (
         <p className="mt-2 flex items-start gap-2 rounded-lg border border-[#eab308]/40 bg-[#eab308]/10 px-3 py-2 text-[11px] leading-5 text-[#fbbf24]">
@@ -418,14 +462,28 @@ function CartaoDaMeta({ meta, fases, site, modo, rdos, editando, podeEscrever, o
         )}
       </div>
 
-      {/* ⚠️ PARCELAS, nunca um total. Ver o docblock do arquivo. */}
+      {/* ─── A meta mensal total ────────────────────────────────────────────────────
+          ⚠️ PARCELAS, nunca um total somado. Piso é m², demarcação é metro linear, sinalização é
+          unidade: `1.000 + 340 + 12` não é área, nem comprimento, nem contagem. O ÚNICO número que
+          legitimamente junta tudo é o R$, e é por isso que ele vem logo abaixo de cada parcela. */}
       <div className="grid grid-cols-2 gap-3 border-b border-[#525252] px-3 py-2.5 sm:grid-cols-3">
-        <Bloco rotulo="Previsto" valor={formatarMetragem(resumo.previsto) || '—'} />
-        <Bloco rotulo="Realizado" valor={formatarMetragem(resumo.realizado) || '—'} />
         <Bloco
-          rotulo="Receita no período"
-          valor={formatCurrency(resumo.receita)}
-          nota={resumo.fasesSemReceita > 0 ? `${resumo.fasesSemReceita} fase(s) sem preço` : undefined}
+          rotulo="Meta total do período"
+          valor={formatarMetragem(resumo.previsto) || '—'}
+          valorSecundario={resumo.receitaPrevista > 0 ? formatCurrency(resumo.receitaPrevista) : undefined}
+          nota={resumo.fasesSemReceita > 0 ? `${resumo.fasesSemReceita} fase(s) sem preço — o R$ está incompleto` : undefined}
+        />
+        <Bloco
+          rotulo="Realizado"
+          valor={formatarMetragem(resumo.realizado) || '—'}
+          valorSecundario={resumo.receita > 0 ? formatCurrency(resumo.receita) : undefined}
+        />
+        <Bloco
+          rotulo="% da receita"
+          /* ⚠️ `—`, nunca 0%. Sem meta precificada não existe percentual, e "0%" leria como
+             atraso — o mesmo motivo pelo qual `pct` por fase é `null` sem meta. */
+          valor={resumo.receitaPrevista > 0 ? `${Math.round((resumo.receita / resumo.receitaPrevista) * 100)}%` : '—'}
+          nota={resumo.receitaPrevista > 0 ? undefined : 'a meta ainda não tem preço'}
         />
       </div>
 
@@ -502,12 +560,51 @@ function CartaoDaMeta({ meta, fases, site, modo, rdos, editando, podeEscrever, o
   )
 }
 
-function Bloco({ rotulo, valor, nota }: { rotulo: string; valor: string; nota?: string }) {
+function Bloco({ rotulo, valor, valorSecundario, nota }: {
+  rotulo: string; valor: string; valorSecundario?: string; nota?: string
+}) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wider text-[#adadad]">{rotulo}</p>
       <p className="text-sm font-bold tabular-nums text-[#f5f5f5]">{valor}</p>
+      {valorSecundario && <p className="text-[11px] font-semibold tabular-nums text-[#4ade80]">{valorSecundario}</p>}
       {nota && <p className="text-[10px] text-[#fbbf24]">{nota}</p>}
     </div>
+  )
+}
+
+/**
+ * O campo de preço, com rascunho local.
+ *
+ * ⚠️ Não bindar direto no `site.precoM2`. `siteToRow` joga a obra inteira no `payload` jsonb, então
+ * `changedColumns` acusa mudança a cada tecla e `flush()` dispara **uma op de sincronização por
+ * caractere digitado**. E "28," no meio da digitação vira `NaN` e sobrescreveria o valor bom.
+ * Commit no blur e no Enter.
+ */
+function CampoPrecoM2({ valor, podeEscrever, onCommit }: {
+  valor: number | undefined
+  podeEscrever: boolean
+  onCommit: (v: number | undefined) => void
+}) {
+  const [rascunho, setRascunho] = useState<string | null>(null)
+  const texto = rascunho ?? (valor != null ? String(valor) : '')
+
+  function confirmar() {
+    if (rascunho === null) return
+    const n = Number(rascunho.replace(',', '.'))
+    // Vazio limpa o preço; lixo não grava nada. Zero seria "esta obra não vale nada".
+    onCommit(rascunho.trim() === '' ? undefined : (Number.isFinite(n) && n > 0 ? n : undefined))
+    setRascunho(null)
+  }
+
+  return (
+    <input
+      type="text" inputMode="decimal" disabled={!podeEscrever}
+      value={texto} placeholder="0,00"
+      onChange={(e) => setRascunho(e.target.value)}
+      onBlur={confirmar}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
+      className="mt-1 w-28 rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1.5 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/60 disabled:opacity-50"
+    />
   )
 }

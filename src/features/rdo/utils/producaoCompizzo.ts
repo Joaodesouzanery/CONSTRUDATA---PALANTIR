@@ -69,3 +69,61 @@ export function areaExecutada(rows: RdoCompizzoProducaoRow[] | undefined): numbe
 export function ehLinhaDeArea(row: Pick<RdoCompizzoProducaoRow, 'unidade' | 'servico'>): boolean {
   return classificarUnidade(unidadeDaLinha(row)) === 'area'
 }
+
+// ─── A classificação da linha ─────────────────────────────────────────────────
+
+/**
+ * O valor do `<option>` de serviço avulso.
+ *
+ * ⚠️ NUNCA é gravado em `faseId`. Ver o docblock de `RdoCompizzoProducaoRow.classificacao`: um
+ * sentinela ali faria `ehPorFase` valer para todo RDO e criaria uma chave fantasma na meta.
+ */
+export const OPCAO_AVULSO = '__avulso__'
+
+export type ClassificacaoDaLinha = 'fase' | 'avulso' | 'nao-escolhida'
+
+/**
+ * O que esta linha é — inclusive nos RDO salvos antes de o campo existir.
+ *
+ * ⚠️ A derivação pelo `servico` é o que faz o RDO de agosto reabrir intacto. Antes desta mudança,
+ * `faseId` vazio com `servico` escrito era a ÚNICA forma de avulso que a tela oferecia; sem a
+ * última linha daqui, aquele documento reabriria com o nome do serviço sumido da tela — e quem
+ * salvasse o apagaria de vez.
+ */
+export function classificacaoDaLinha(
+  row: Pick<RdoCompizzoProducaoRow, 'faseId' | 'classificacao' | 'servico'>,
+): ClassificacaoDaLinha {
+  if (row.faseId) return 'fase'                      // a fase manda sobre tudo
+  if (row.classificacao) return row.classificacao    // a escolha explícita de quem digitou
+  return (row.servico ?? '').trim() !== '' ? 'avulso' : 'nao-escolhida'
+}
+
+/**
+ * Linha sem classificação e sem nada digitado — ruído de tela, não vai para o documento.
+ *
+ * ⚠️ `quantidadePrevista` sozinha CONTA como conteúdo: meta digitada com a quantidade do dia ainda
+ * em branco é informação, e descartá-la apagaria a meta da atividade no Planejamento.
+ */
+export function linhaVazia(row: RdoCompizzoProducaoRow): boolean {
+  return classificacaoDaLinha(row) === 'nao-escolhida'
+    && (row.quantidade ?? '').trim() === ''
+    && row.quantidadePrevista == null
+}
+
+/**
+ * Os índices das linhas com quantidade e sem nada a que atribuí-la.
+ *
+ * ⚠️ É o caso que o "Selecionar Fase" como padrão cria: alguém digita 120 e não escolhe a fase.
+ * Esse número seria gravado, impresso e não entraria nem na meta (`realizadoPorFaseNoPeriodo`
+ * exige `faseId`) nem no Planejamento (`buildProducaoFinal` exige nome) — um valor que o sistema
+ * mostra e não sabe explicar.
+ */
+export function linhasSemDestino(rows: readonly RdoCompizzoProducaoRow[]): number[] {
+  return rows.flatMap((r, i) => {
+    const cls = classificacaoDaLinha(r)
+    const temQtd = (r.quantidade ?? '').trim() !== ''
+    if (cls === 'nao-escolhida' && temQtd) return [i]
+    if (cls === 'avulso' && temQtd && !(r.servico ?? '').trim()) return [i]
+    return []
+  })
+}

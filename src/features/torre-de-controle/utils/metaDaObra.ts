@@ -57,8 +57,16 @@ export interface LinhaDaMeta {
   pct: number | null
   /** Falta para bater a meta. Negativo = passou. */
   falta: number
-  /** Receita da fase no período, ou `null` quando o modo de preço não sabe precificá-la. */
+  /** Receita do que foi FEITO no período, ou `null` quando o modo de preço não sabe precificar. */
   receita: number | null
+  /**
+   * Receita da META — o previsto vezes o preço. `null` pelos mesmos motivos.
+   *
+   * ⚠️ É o par de `receita`, e os dois são números diferentes: um é o que se vai receber se a meta
+   * for cumprida, o outro é o que já foi produzido. Sem este, a tela só sabia dizer quanto foi
+   * feito, e "R$ 11.250" sozinho não responde se isso é muito ou pouco.
+   */
+  receitaPrevista: number | null
   motivoSemReceita?: MotivoSemReceita
 }
 
@@ -114,8 +122,10 @@ export interface ResumoDaMeta {
   /** Previsto e realizado em PARCELAS por unidade — nunca um total somado. */
   previsto: Metragem
   realizado: Metragem
-  /** Soma das receitas que foi possível calcular. */
+  /** Soma das receitas do REALIZADO que foi possível calcular. */
   receita: number
+  /** Soma das receitas da META que foi possível calcular. */
+  receitaPrevista: number
   /** Quantas fases ficaram sem receita — o número que impede o total de parecer completo. */
   fasesSemReceita: number
   /** Dias corridos do período, para o ritmo diário. */
@@ -149,6 +159,9 @@ export function resumoDaMeta(
     const previsto = meta.porFase[fase.id] ?? 0
     const feito = realizado[fase.id] ?? 0
     const r = receitaDaFase(fase, feito, modo, precoM2DaObra)
+    // Mesma função, outra quantidade. `fasesSemReceita` continua servindo aos dois: os quatro
+    // motivos de `receitaDaFase` não dependem da quantidade.
+    const rp = receitaDaFase(fase, previsto, modo, precoM2DaObra)
     return {
       fase,
       previsto,
@@ -157,6 +170,7 @@ export function resumoDaMeta(
       pct: previsto > 0 ? (feito / previsto) * 100 : null,
       falta: previsto - feito,
       receita: r.valor,
+      receitaPrevista: rp.valor,
       motivoSemReceita: r.motivo,
     }
   })
@@ -166,6 +180,7 @@ export function resumoDaMeta(
     previsto: somarMetragem(linhas.map((l) => ({ unidade: l.fase.unidade, quantidade: l.previsto }))),
     realizado: somarMetragem(linhas.map((l) => ({ unidade: l.fase.unidade, quantidade: l.realizado }))),
     receita: linhas.reduce((s, l) => s + (l.receita ?? 0), 0),
+    receitaPrevista: linhas.reduce((s, l) => s + (l.receitaPrevista ?? 0), 0),
     fasesSemReceita: linhas.filter((l) => l.receita == null).length,
     dias: diasDoPeriodo(meta.de, meta.ate),
   }
@@ -239,4 +254,26 @@ export function conferirCatalogo(
 /** Ritmo diário necessário para bater a meta de uma fase. */
 export function ritmoDiarioDaFase(previsto: number, dias: number): number {
   return dias > 0 ? previsto / dias : 0
+}
+
+// ─── O preço que o contrato sugere ────────────────────────────────────────────
+
+/**
+ * Preço médio por m² do contrato da obra, ponderado pela quantidade contratada.
+ *
+ * ⚠️ **Ponderado, nunca a média aritmética.** Num contrato com 18.000 m² a R$ 28 e 50 m² a R$ 120,
+ * a aritmética dá R$ 74/m² e multiplicaria a receita da meta por 2,6. A ponderada dá R$ 28,25.
+ *
+ * ⚠️ Só serviços em m². O contrato tem itens em metro linear e em unidade, e um R$/m² tirado deles
+ * não significa nada — é a mesma razão pela qual `receitaDaFase` recusa o modo `peso` fora de área.
+ *
+ * Isto estava dentro de um `useMemo` de componente, sem teste, servindo só para mostrar um aviso.
+ * Agora alimenta um botão que GRAVA o preço da obra — e por isso precisa de teste.
+ */
+export function precoMedioDoContratoM2(site: Pick<ConstructionSite, 'contrato'>): number | null {
+  const deArea = (site.contrato?.services ?? []).filter((s) => s.unidade === 'm²' && s.valorUnitario > 0)
+  if (deArea.length === 0) return null
+  const qtd = deArea.reduce((s, x) => s + (x.qtdContrato || 0), 0)
+  if (qtd <= 0) return null
+  return deArea.reduce((s, x) => s + (x.qtdContrato || 0) * x.valorUnitario, 0) / qtd
 }

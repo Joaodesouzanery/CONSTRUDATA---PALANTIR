@@ -28,6 +28,8 @@ test('🔴 a linha de fase PRESERVA contractServiceId — é por ele que a medi�
   assert.match(bloco![0], /planningActivityId\?/,
     'sem ele, o Previsto × Realizado e o Gestão 360 param de ver a obra')
   assert.match(bloco![0], /faseId\?/)
+  assert.match(bloco![0], /classificacao\?/,
+    'sem ele, `faseId` vazio volta a significar duas coisas — "não escolhi" e "é avulso"')
 })
 
 test('🔴 o checklist saiu da TELA mas os campos continuam no tipo — RDO antigo não pode sumir', async () => {
@@ -93,4 +95,70 @@ test('o painel usa o id determinístico, nunca randomUUID, para as fases padrão
   assert.doesNotMatch(bloco![0], /randomUUID/,
     'com id aleatório, o faseId gravado ontem não casaria com o de hoje e a meta veria zero '
     + 'para sempre — sem nenhum erro na tela')
+})
+
+// ─── 🔴 O select, a coluna e as Metas (23/09/2026) ────────────────────────────
+
+test('🔴 o padrão é "Selecionar Fase" e o avulso é a ÚLTIMA opção', async () => {
+  const p = await ler('./components/RdoCompizzoPanel.tsx')
+  const iSelecionar = p.indexOf('>Selecionar Fase<')
+  const iFases = p.indexOf('fasesDaObra.map((f) =>')
+  const iAvulso = p.indexOf('OPCAO_AVULSO}>')
+  assert.ok(iSelecionar > -1, 'a opção padrão precisa existir')
+  assert.ok(iSelecionar < iFases && iFases < iAvulso,
+    'a ordem das opções é uma decisão do cliente e só existe no JSX — nenhum tipo a protege')
+})
+
+test('🔴 o sentinela de avulso NUNCA é gravado em faseId', async () => {
+  const painel = await ler('./components/RdoCompizzoPanel.tsx')
+  assert.doesNotMatch(painel, /faseId: OPCAO_AVULSO|faseId: '__avulso__'/,
+    'o PDF decide o título com `producao.some((p) => !!p.faseId)`: um sentinela ali faria TODO '
+    + 'RDO imprimir "Fases do dia". E `realizadoPorFaseNoPeriodo` acumula por `faseId` — criaria '
+    + 'uma chave fantasma na meta da obra')
+  assert.match(painel, /classificacao: 'avulso'/, 'o avulso é marcado em campo próprio')
+})
+
+test('🔴 a coluna Atividade saiu da TELA, e a criação no Planejamento CONTINUA', async () => {
+  const p = await ler('./components/RdoCompizzoPanel.tsx')
+  assert.doesNotMatch(p, /value=\{row\.planningActivityId \?\? ''\}/, 'o select da atividade saiu')
+  assert.match(p, /const obraAtividades = useMemo/,
+    '⚠️ sem ele, `buildProducaoFinal` para de reaproveitar a atividade pelo nome e cria uma NOVA '
+    + 'a cada save — o Previsto × Realizado se reparte entre dezenas de "Pintura"')
+  assert.match(p, /addActivity\(\{/, 'o Previsto × Realizado e o Gestão 360 dependem disto')
+  assert.match(p, /planningActivityId: id/)
+})
+
+test('🔴 cabeçalho e linha da grade usam A MESMA constante', async () => {
+  const p = await ler('./components/RdoCompizzoPanel.tsx')
+  const bloco = p.slice(p.indexOf('Fases do Dia'), p.indexOf('Materiais Utilizados'))
+  assert.equal((bloco.match(/gridTemplateColumns: COLUNAS_DA_FASE/g) ?? []).length, 2)
+  assert.doesNotMatch(bloco, /gridTemplateColumns: '/,
+    'duplicado, o gabarito diverge e o cabeçalho passa a rotular a coluna errada — sem erro nenhum')
+})
+
+test('🔴 o RDO monta a MESMA seção de metas da Torre, não uma cópia', async () => {
+  const p = await ler('./components/RdoCompizzoPanel.tsx')
+  assert.match(p, /import \{ MetasDaObraSection \}/)
+  assert.match(p, /key=\{`metas-\$\{selectedSite\.id\}`\}/,
+    'sem a key o card não remonta ao trocar de obra e grava a meta da obra A dentro da obra B')
+  assert.doesNotMatch(p, /resumoDaMeta|realizadoPorFaseNoPeriodo/,
+    'uma segunda conta da meta dentro do RDO é exatamente como nascem dois números diferentes '
+    + 'para a mesma pergunta')
+  assert.match(p, /verMeta && \(/,
+    'render condicional: com <details> os filhos montam fechados e a varredura de TODOS os RDO '
+    + 'rodaria a cada tecla digitada no formulário')
+})
+
+test('🔴 a permissão das metas continua sendo a da TORRE, mesmo dentro do RDO', async () => {
+  const secao = await ler('../torre-de-controle/components/MetasDaObraSection.tsx')
+  assert.match(secao, /usePermissaoEscrita\(ROLES_TORRE_WRITE\)/,
+    '`updateSite` fecha em `podeEscreverTorre()` e retorna SEM ERRO. Alargar para ROLES_RDO_WRITE '
+    + 'faria o papel `qualidade` digitar a meta e nada acontecer — nem gravação, nem aviso')
+  assert.doesNotMatch(secao, /ROLES_RDO_WRITE/)
+})
+
+test('🔴 quantidade sem destino bloqueia o FINALIZAR, não o rascunho', async () => {
+  const p = await ler('./components/RdoCompizzoPanel.tsx')
+  assert.match(p, /status === 'finalizado' && faltaClassificar\.length > 0/,
+    'rascunho é "ainda vou preencher", e a meta já ignora rascunho por conta própria')
 })

@@ -10,10 +10,10 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   realizadoPorFaseNoPeriodo, receitaDaFase, resumoDaMeta, conferirCatalogo,
-  diasDoPeriodo, ritmoDiarioDaFase, TEXTO_SEM_RECEITA,
+  diasDoPeriodo, ritmoDiarioDaFase, TEXTO_SEM_RECEITA, precoMedioDoContratoM2,
 } from './metaDaObra'
 import { FASES_PADRAO, FASE_POLIMENTO, TOTAL_DOS_PESOS } from '@/features/rdo/data/fasesPadrao'
-import type { FaseDaObra, MetaDoPeriodo, RDO } from '@/types'
+import type { ConstructionSite, FaseDaObra, MetaDoPeriodo, RDO } from '@/types'
 
 // ─── Montagem ─────────────────────────────────────────────────────────────────
 
@@ -251,4 +251,70 @@ test('🔴 as unidades das fases padrão não são todas iguais', () => {
 test('o Polimento existe à parte, fora do padrão', () => {
   assert.equal(FASE_POLIMENTO.nome, 'Polimento')
   assert.ok(!FASES_PADRAO.some((f) => f.nome === 'Polimento'))
+})
+
+// ─── 🔴 A receita da META × a receita do FEITO ────────────────────────────────
+
+test('🔴 receitaPrevista sai do PREVISTO e receita sai do REALIZADO — não são o mesmo número', () => {
+  const r = resumoDaMeta([PISO], { ...META, porFase: { 'f-piso': 1000 } }, { 'f-piso': 250 }, 'peso', 45)
+  // 1.000 m² × R$ 45 × 100% = 45.000 previstos; 250 m² feitos = 11.250.
+  assert.equal(r.receitaPrevista, 45_000)
+  assert.equal(r.receita, 11_250)
+  assert.equal(r.linhas[0].receitaPrevista, 45_000)
+  assert.equal(r.linhas[0].receita, 11_250)
+  // ⚠️ Se alguém trocar o argumento de uma das duas, os números ficam IGUAIS e ninguém percebe —
+  // a tela mostraria a meta 100% faturada desde o primeiro dia do mês.
+  assert.notEqual(r.receitaPrevista, r.receita)
+})
+
+test('🔴 fase em metro linear no modo peso não tem receita prevista, e é contada como sem preço', () => {
+  const r = resumoDaMeta([DEMARCACAO], { ...META, porFase: { 'f-dem': 400 } }, { 'f-dem': 100 }, 'peso', 45)
+  assert.equal(r.linhas[0].receitaPrevista, null, 'R$/m² não multiplica metro linear')
+  assert.equal(r.linhas[0].receita, null)
+  assert.equal(r.receitaPrevista, 0)
+  assert.equal(r.fasesSemReceita, 1, 'o total incompleto tem de vir MARCADO, nunca parecer completo')
+})
+
+test('o modo preço próprio precifica a meta em metro linear — os R$ 8,75/m da demarcação', () => {
+  const dem = { ...DEMARCACAO, precoUnitario: 8.75 }
+  const r = resumoDaMeta([dem], { ...META, porFase: { 'f-dem': 400 } }, { 'f-dem': 100 }, 'preco-proprio', undefined)
+  assert.equal(r.receitaPrevista, 3500)
+  assert.equal(r.receita, 875)
+  assert.equal(r.fasesSemReceita, 0)
+})
+
+// ─── 🔴 O preço que o contrato sugere ─────────────────────────────────────────
+
+const obraCom = (services: Array<{ unidade: string; qtdContrato: number; valorUnitario: number }>) =>
+  ({ contrato: { services } } as unknown as ConstructionSite)
+
+test('🔴 o preço do contrato é média PONDERADA pela quantidade, nunca a aritmética', () => {
+  // O caso real: um item grande e barato, outro pequeno e caro.
+  const site = obraCom([
+    { unidade: 'm²', qtdContrato: 18_000, valorUnitario: 28 },
+    { unidade: 'm²', qtdContrato: 50, valorUnitario: 120 },
+  ])
+  const media = precoMedioDoContratoM2(site)!
+  assert.ok(Math.abs(media - 28.2548) < 0.001, `esperava ~28,25, deu ${media}`)
+  // ⚠️ A aritmética daria R$ 74/m² e multiplicaria a receita da meta por 2,6. E este número
+  // agora alimenta um botão que GRAVA o preço da obra.
+  assert.notEqual(Math.round(media), 74)
+})
+
+test('🔴 só serviço em m² entra — metro linear e unidade não formam um R$/m²', () => {
+  const site = obraCom([
+    { unidade: 'm²', qtdContrato: 100, valorUnitario: 30 },
+    { unidade: 'm', qtdContrato: 1000, valorUnitario: 8.75 },
+    { unidade: 'un', qtdContrato: 20, valorUnitario: 150 },
+  ])
+  assert.equal(precoMedioDoContratoM2(site), 30)
+})
+
+test('sem base, devolve null — não zero', () => {
+  assert.equal(precoMedioDoContratoM2({} as ConstructionSite), null)
+  assert.equal(precoMedioDoContratoM2(obraCom([])), null)
+  assert.equal(precoMedioDoContratoM2(obraCom([{ unidade: 'm²', qtdContrato: 100, valorUnitario: 0 }])), null,
+    'serviço sem preço não entra na média')
+  assert.equal(precoMedioDoContratoM2(obraCom([{ unidade: 'm²', qtdContrato: 0, valorUnitario: 30 }])), null,
+    'quantidade zero dividiria por zero')
 })

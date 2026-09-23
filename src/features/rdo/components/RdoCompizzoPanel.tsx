@@ -8,8 +8,7 @@ import { toast } from 'sonner'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ClipboardList, Plus, Trash2, Printer, Save, FileText, Sun, Cloud,
-  CloudRain, Wrench, Camera, X, ScanText, CheckCircle2, Users, Building2, PackageSearch,
-} from 'lucide-react'
+  CloudRain, Wrench, Camera, X, ScanText, CheckCircle2, Users, Building2, PackageSearch, Target, ChevronDown, ChevronUp } from 'lucide-react'
 import { useRdoStore, AVISO_SEM_PERMISSAO } from '@/store/rdoStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
@@ -24,10 +23,11 @@ import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
 import { faturamento } from '@/features/planejamento/utils/planoExecucao'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { margemPorServico } from '../utils/margemPorServico'
+import { MetasDaObraSection } from '@/features/torre-de-controle/components/MetasDaObraSection'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { compressImageToBlob } from '@/lib/imageCompression'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
-import { hojeLocalISO } from '@/lib/utils'
+import { hojeLocalISO, cn } from '@/lib/utils'
 import { uploadRdoPhoto, blobToDataUrl, leanPhotosForPersist, removeRdoPhoto } from '../utils/rdoPhotoStorage'
 import { RdoPhotoImg } from './RdoPhotoImg'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
@@ -35,7 +35,7 @@ import { abrirJanelaRelatorio, imprimirRelatorioRdos } from '../utils/rdosReport
 import { precoEfetivo, medidoAutoPorServico, saldoQtd, qtdMedida } from '@/features/torre-de-controle/utils/obraMedicao'
 import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
 import { ehVerba, ROTULO_UNIDADE, classificarUnidade } from '@/lib/unidadesMedida'
-import { ehLinhaDeArea, unidadeDaLinha } from '../utils/producaoCompizzo'
+import { ehLinhaDeArea, unidadeDaLinha, OPCAO_AVULSO, classificacaoDaLinha, linhaVazia, linhasSemDestino } from '../utils/producaoCompizzo'
 import type { HorasPorOcorrencia, MotivoDeParada } from '@/types'
 import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 import type {
@@ -65,13 +65,28 @@ const OCORRENCIA_ITEMS: Array<[keyof RdoCompizzoOcorrencias, string]> = [
   ['outros', 'Outros'],
 ]
 
-const DEFAULT_PRODUCAO: RdoCompizzoProducaoRow[] = [
-  { servico: 'Pintura Vermelha (m²)', quantidade: '' },
-  { servico: 'Pintura Amarela (m²)', quantidade: '' },
-  { servico: 'Faixa Branca (m)', quantidade: '' },
-  { servico: 'Faixa Amarela (m)', quantidade: '' },
-  { servico: 'Faixa Vermelha (m)', quantidade: '' },
-  { servico: 'Vagas PCD (un)', quantidade: '' },
+/**
+ * Com o que um RDO novo abre.
+ *
+ * ⚠️ Eram SEIS linhas com nome ("Pintura Vermelha (m²)", "Faixa Branca (m)"…) — o modelo de antes
+ * das Fases. Todas nasciam avulsas e, por isso, **nenhuma alimentava a meta da obra**: o caminho
+ * padrão produzia exatamente as linhas que a meta não enxerga. Agora abre com UMA linha por
+ * classificar, e as oito fases da obra estão no alto do `<select>`.
+ *
+ * ⚠️ Nada foi apagado: quem quiser lançar "Pintura Vermelha" escolhe "serviço avulso" e digita,
+ * como sempre — e o RDO antigo reabre exatamente como foi salvo (ver `classificacaoDaLinha`).
+ */
+/**
+ * O gabarito das colunas da grade de fases.
+ *
+ * ⚠️ UMA constante para o cabeçalho e para a linha. Estavam duplicados literalmente; duplicados,
+ * divergem na primeira vez que alguém mexe num — e aí o cabeçalho passa a rotular a coluna errada,
+ * sem nenhum erro na tela.
+ */
+const COLUNAS_DA_FASE = 'minmax(0,1.6fr) 84px 64px 84px 32px'
+
+const PRODUCAO_INICIAL: RdoCompizzoProducaoRow[] = [
+  { servico: '', quantidade: '', classificacao: 'nao-escolhida' },
 ]
 
 const DEFAULT_MATERIAIS: RdoCompizzoMaterialRow[] = [
@@ -193,6 +208,16 @@ export function RdoCompizzoPanel() {
     || (selectedSite ? (selectedSite.totalArea || 0) * (selectedSite.precoM2 || 0) : 0)
   const hasContratoMeta   = Boolean(numeroContrato || servicoContratado || precoM2 || bacObra || periodoInicio)
 
+  /**
+   * As atividades do Planejamento desta obra.
+   *
+   * ⚠️ **O único consumidor agora é `buildProducaoFinal`** — a coluna "Atividade" saiu da tela em
+   * 23/09/2026 e o vínculo passou a ser criado sozinho, pelo NOME da fase, no salvar.
+   *
+   * ⚠️ Não remover achando que virou código morto: é por esta lista que `buildProducaoFinal`
+   * reaproveita a atividade existente. Sem ela, cada salvar criaria uma atividade NOVA com o mesmo
+   * nome, e o Previsto × Realizado da obra se repartiria entre dezenas de "Pintura".
+   */
   const obraAtividades = useMemo(
     () => masterActivities.filter((a) => a.level >= 1 && !a.isMilestone && (!obraSiteId || (a.obraId ?? null) === obraSiteId)),
     [masterActivities, obraSiteId],
@@ -252,7 +277,7 @@ export function RdoCompizzoPanel() {
   const [servicosExtra] = useState<RdoCompizzoServicoExtra[]>(c0?.servicosExtra ?? [])
   const [descricao, setDescricao] = useState(c0?.descricaoServicos ?? '')
   const [producao, setProducao] = useState<RdoCompizzoProducaoRow[]>(() => {
-    const base = c0?.producao ?? DEFAULT_PRODUCAO
+    const base = c0?.producao ?? PRODUCAO_INICIAL
     // Retrocompat: o vínculo único legado (cz.planningActivityId) somava TODAS as linhas em m²
     // naquela atividade. Migramos vinculando a atividade a TODAS as linhas em m² (preserva a soma);
     // se não houver linha em m², vincula a 1ª linha.
@@ -265,6 +290,17 @@ export function RdoCompizzoPanel() {
   })
 
   /** A próxima fase da ordem que ainda não foi apontada hoje — o atalho de um toque. */
+  /**
+   * As linhas com quantidade digitada e sem nada a que atribuí-la.
+   *
+   * ⚠️ Marcadas em vermelho ANTES do salvar. Bloquear no clique sem ter marcado antes faz a pessoa
+   * procurar o erro numa tela de trinta campos.
+   */
+  const faltaClassificar = useMemo(() => linhasSemDestino(producao), [producao])
+
+  /** A meta nasce recolhida: quem lança o RDO está preenchendo o dia, não editando a meta do mês. */
+  const [verMeta, setVerMeta] = useState(false)
+
   const faseNaoApontada = useMemo(
     () => fasesDaObra.find((f) => !producao.some((r) => r.faseId === f.id)),
     [fasesDaObra, producao],
@@ -313,6 +349,8 @@ export function RdoCompizzoPanel() {
           // serviço do contrato que não foi trabalhado neste RDO.
           servico: svc.descricao, quantidade: '', unidade: svc.unidade,
           quantidadePrevista: undefined, contractServiceId: svc.id,
+          // Explícito: linha do contrato é serviço avulso, não fase. Não depender da derivação.
+          classificacao: 'avulso' as const,
         }))
       return add.length ? [...rows, ...add] : rows
     })
@@ -345,7 +383,10 @@ export function RdoCompizzoPanel() {
       periodoFim: periodoFim || undefined,
       diaObra, condicaoClimatica: condicao, condicaoClimaticaOutros: condicaoOutros || undefined,
       servicos, servicosExtra: servicosExtra.filter((s) => s.nome.trim()),
-      descricaoServicos: descricao, producao: prod,
+      // ⚠️ O descarte é AQUI, no payload, e não em `buildProducaoFinal`: `handleSave` devolve o
+      // resultado daquela para a tela (`setProducao`), então descartar lá faria as linhas sumirem
+      // sob os dedos de quem clicou em "Salvar Rascunho".
+      descricaoServicos: descricao, producao: prod.filter((r) => !linhaVazia(r)),
       horasTrabalhadas: parseLocaleNumber(horasTrabalhadas) || undefined,
       indiretoDoDia: parseLocaleNumber(horasIndiretas) > 0
         ? { horas: parseLocaleNumber(horasIndiretas), motivo: motivoIndireto.trim() || undefined }
@@ -481,6 +522,20 @@ export function RdoCompizzoPanel() {
   }
 
   function handleSave(status: 'rascunho' | 'finalizado' = 'finalizado') {
+    // ⚠️ Quantidade sem destino BLOQUEIA o finalizar, e só o finalizar.
+    //
+    // Um número sem fase e sem nome é gravado, é impresso, e o sistema não sabe explicá-lo: não
+    // entra na meta (`realizadoPorFaseNoPeriodo` exige `faseId`) nem no Planejamento
+    // (`buildProducaoFinal` exige nome). Rascunho passa porque rascunho é "ainda vou preencher" —
+    // e a meta já ignora rascunho por conta própria.
+    if (status === 'finalizado' && faltaClassificar.length > 0) {
+      toast.error(
+        `Linha ${faltaClassificar.map((i) => i + 1).join(', ')}: escolha a fase, ou marque `
+        + '"serviço avulso" e dê um nome. Quantidade sem serviço não entra na meta da obra nem no '
+        + 'Planejamento, e sai em branco no PDF.',
+      )
+      return
+    }
     const producaoFinal = buildProducaoFinal()   // cria atividades no Planejamento p/ linhas novas
     if (producaoFinal !== producao) setProducao(producaoFinal)
     const payload = { ...buildRdoPayload(producaoFinal), status }
@@ -912,76 +967,79 @@ export function RdoCompizzoPanel() {
             catálogo da obra: ninguém digita zero em sete linhas todo dia. */}
         <Section title="Fases do Dia" icon={<ClipboardList size={16} className="text-[#1f6fd1]" />}>
           <div className="space-y-2">
-            <div className="hidden sm:grid gap-2 px-1" style={{ gridTemplateColumns: 'minmax(0,1.3fr) 72px 56px 76px minmax(0,1.3fr) 32px' }}>
+            <div className="hidden sm:grid gap-2 px-1" style={{ gridTemplateColumns: COLUNAS_DA_FASE }}>
               <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Fase / serviço</span>
               <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Qtd. dia</span>
               <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Un.</span>
               <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Meta</span>
-              <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Atividade (cria no Plan. se vazio)</span>
               <span />
             </div>
             {producao.map((row, i) => {
               const act = row.planningActivityId ? obraAtividades.find((a) => a.id === row.planningActivityId) : undefined
+              const cls = classificacaoDaLinha(row)
               return (
-                <div key={i} className="grid gap-2 items-start" style={{ gridTemplateColumns: 'minmax(0,1.3fr) 72px 56px 76px minmax(0,1.3fr) 32px' }}>
+                <div key={i} className="grid gap-2 items-start" style={{ gridTemplateColumns: COLUNAS_DA_FASE }}>
                   <div>
                     <select
-                      className={inputCls}
-                      value={row.faseId ?? ''}
+                      className={cn(inputCls, faltaClassificar.includes(i) && 'border-[#ef4444]/70')}
+                      value={cls === 'fase' ? row.faseId! : cls === 'avulso' ? OPCAO_AVULSO : ''}
                       onChange={(e) => {
-                        const id = e.target.value || undefined
-                        const f = id ? fasesDaObra.find((x) => x.id === id) : undefined
+                        const v = e.target.value
+                        if (v === OPCAO_AVULSO) {
+                          updateProducao(i, { faseId: undefined, classificacao: 'avulso' })
+                          return
+                        }
+                        if (v === '') {
+                          // ⚠️ O nome só é limpo quando a linha NÃO veio do contrato: a descrição
+                          // de uma linha com `contractServiceId` pertence ao contrato, e apagá-la
+                          // deixaria a medição com um vínculo sem nome.
+                          updateProducao(i, row.contractServiceId
+                            ? { faseId: undefined, classificacao: 'nao-escolhida' }
+                            : { faseId: undefined, classificacao: 'nao-escolhida', servico: '', unidade: undefined })
+                          return
+                        }
+                        const f = fasesDaObra.find((x) => x.id === v)
                         // A unidade vem da FASE, não é digitada: é ela que decide se a metragem é
                         // área, comprimento ou contagem — e daí depende a meta e o preço.
-                        updateProducao(i, f
-                          ? { faseId: f.id, servico: f.nome, unidade: f.unidade }
-                          : { faseId: undefined })
+                        if (f) updateProducao(i, { faseId: f.id, servico: f.nome, unidade: f.unidade, classificacao: 'fase' })
                       }}
                     >
-                      <option value="">— serviço avulso (digite abaixo) —</option>
+                      <option value="">Selecionar Fase</option>
                       {fasesDaObra.map((f) => (
                         <option key={f.id} value={f.id}>{f.ordem}. {f.nome} ({f.unidade})</option>
                       ))}
+                      {/* ⚠️ O ÚLTIMO da lista, por decisão do cliente. A opção continua existindo:
+                          há serviço no canteiro que não é fase nenhuma. */}
+                      <option value={OPCAO_AVULSO}>— serviço avulso (digite abaixo) —</option>
                     </select>
-                    {!row.faseId && (
+                    {cls === 'avulso' && (
                       <input
                         className={`${inputCls} mt-1`} value={row.servico} placeholder="Serviço avulso"
                         onChange={(e) => updateProducao(i, { servico: e.target.value })}
                       />
                     )}
+                    {/* O vínculo com o Planejamento continua existindo — deixou de ser editável
+                        aqui e passou a seguir o nome da fase. Esta linha é o rastro dele. */}
+                    {act && (
+                      <p className="mt-0.5 truncate text-[10px] text-[#6b6b6b]"
+                         title={`Previsto ${act.plannedQuantity ?? '—'} · realizado ${act.executedQuantity ?? 0} (${Math.round(act.percentComplete ?? 0)}%)`}>
+                        → planej. {act.name}
+                      </p>
+                    )}
                   </div>
                   <input className={inputCls} value={row.quantidade} placeholder="Qtd" inputMode="decimal" onChange={(e) => updateProducao(i, { quantidade: e.target.value })} />
                   <input className={inputCls} value={row.unidade ?? ''} placeholder="m²" list="compizzo-unidades" onChange={(e) => updateProducao(i, { unidade: e.target.value })} />
                   <input className={inputCls} value={row.quantidadePrevista != null ? String(row.quantidadePrevista) : ''} placeholder="meta" inputMode="decimal" onChange={(e) => updateProducao(i, { quantidadePrevista: parseLocaleNumber(e.target.value) || undefined })} />
-                  <div>
-                    <select
-                      className={inputCls}
-                      value={row.planningActivityId ?? ''}
-                      onChange={(e) => {
-                        const id = e.target.value || undefined
-                        const a = id ? obraAtividades.find((x) => x.id === id) : undefined
-                        updateProducao(i, { planningActivityId: id, quantidadePrevista: a?.plannedQuantity ?? row.quantidadePrevista })
-                      }}
-                    >
-                      <option value="">{obraSiteId ? '— Criar no Planejamento ao salvar —' : '— Selecione a obra p/ lançar —'}</option>
-                      {obraAtividades.map((a) => <option key={a.id} value={a.id}>{a.wbsCode ? `${a.wbsCode} · ` : ''}{a.name}</option>)}
-                    </select>
-                    {act && (
-                      <p className="mt-0.5 text-[10px] text-[#6b6b6b]">
-                        Previsto {act.plannedQuantity ?? '—'} · realizado {act.executedQuantity ?? 0} ({Math.round(act.percentComplete ?? 0)}%)
-                      </p>
-                    )}
-                  </div>
                   <button type="button" onClick={() => setProducao((rows) => rows.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-300 flex items-center justify-center pt-2"><Trash2 size={14} /></button>
                 </div>
               )
             })}
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={() => setProducao((rows) => [...rows, { servico: '', quantidade: '' }])} className="flex items-center gap-1.5 text-[#1f6fd1] hover:text-[#1a5cb0] text-sm"><Plus size={14} /> Adicionar fase</button>
+              <button type="button" onClick={() => setProducao((rows) => [...rows, { servico: '', quantidade: '', classificacao: 'nao-escolhida' }])} className="flex items-center gap-1.5 text-[#1f6fd1] hover:text-[#1a5cb0] text-sm"><Plus size={14} /> Adicionar fase</button>
               {faseNaoApontada && (
                 <button
                   type="button"
-                  onClick={() => setProducao((rows) => [...rows, { faseId: faseNaoApontada.id, servico: faseNaoApontada.nome, unidade: faseNaoApontada.unidade, quantidade: '' }])}
+                  onClick={() => setProducao((rows) => [...rows, { faseId: faseNaoApontada.id, servico: faseNaoApontada.nome, unidade: faseNaoApontada.unidade, quantidade: '', classificacao: 'fase' }])}
                   className="flex items-center gap-1.5 rounded-lg border border-[#525252] px-2 py-1 text-xs text-[#a3a3a3] hover:border-[#1f6fd1]/50 hover:text-[#f5f5f5]"
                 >
                   <Plus size={12} /> {faseNaoApontada.ordem}. {faseNaoApontada.nome}
@@ -990,13 +1048,60 @@ export function RdoCompizzoPanel() {
             </div>
           </div>
           <p className="mt-2 text-[10px] leading-4 text-[#6b6b6b]">
-            A linha com <strong>fase</strong> alimenta a meta da obra na Torre de Controle. A linha
-            com serviço avulso continua valendo para o dia, mas não entra na meta — o sistema não
-            tem como saber a que fase ela pertence.
-            {' '}Ao salvar, linha <strong>sem vínculo de atividade</strong> cria a atividade no
-            Planejamento (com unidade e meta) e passa a avançar o Previsto × Realizado. Precisa de
+            A linha com <strong>fase</strong> alimenta a <strong>Meta de Produção</strong> desta
+            obra — a mesma que aparece logo abaixo e na Torre de Controle. A linha com serviço
+            avulso continua valendo para o dia, mas não entra na meta: o sistema não tem como saber
+            a que fase ela pertence.
+            {' '}Ao salvar, a linha também cria (ou reaproveita, pelo nome) a atividade
+            correspondente no Planejamento, que é o que move o Previsto × Realizado e o Gestão 360.
+            Esse vínculo deixou de ser editável aqui e passou a seguir o nome da fase. Precisa de
             uma obra selecionada.
           </p>
+
+          {/* ─── Metas de Produção ─────────────────────────────────────────────────────────
+              ⚠️ É a MESMA seção da Torre de Controle, não uma cópia. Editar aqui grava em
+              `useTorreStore.sites` pelo `updateSite`, e a Torre relê do mesmo store — os dois
+              lados são a mesma verdade porque não existe cópia local em lugar nenhum. Uma segunda
+              implementação da meta dentro do RDO é exatamente como nascem dois números diferentes
+              para a mesma pergunta.
+
+              ⚠️ Render CONDICIONAL, não `<details>`/`hidden`: `<details>` monta os filhos mesmo
+              fechado, e aí a varredura de TODOS os RDO da empresa (`realizadoPorFaseNoPeriodo`)
+              rodaria a cada tecla digitada neste formulário, com a meta escondida. */}
+          <div className="mt-4 border-t border-[#525252] pt-3">
+            {!selectedSite ? (
+              <p className="text-[11px] text-[#6b6b6b]">Selecione a obra para ver a meta de produção.</p>
+            ) : (
+              <>
+                <button
+                  type="button" onClick={() => setVerMeta((v) => !v)}
+                  className="flex w-full items-center gap-2 rounded-lg border border-[#525252] px-3 py-2 text-xs text-[#a3a3a3] hover:border-[#1f6fd1]/50 hover:text-[#f5f5f5]"
+                >
+                  <Target size={13} className="text-[#1f6fd1]" />
+                  <span className="font-medium">{verMeta ? 'Ocultar meta' : 'Visualizar meta'}</span>
+                  <span className="ml-auto text-[10px] text-[#6b6b6b]">
+                    {(selectedSite.metas?.length ?? 0) === 0 ? 'nenhuma meta cadastrada'
+                      : `${selectedSite.metas!.length} período(s)`}
+                  </span>
+                  {verMeta ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </button>
+
+                {verMeta && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[10px] leading-4 text-[#6b6b6b]">
+                      ⚠️ O <strong>Feito</strong> abaixo vem dos RDO <strong>finalizados</strong>{' '}
+                      desta obra. O que você está digitando agora só entra na conta depois de
+                      finalizar — rascunho não conta.
+                    </p>
+                    {/* ⚠️ `key` OBRIGATÓRIA. O card guarda a meta em edição num `useState` interno;
+                        sem remontar ao trocar de obra, o `onSalvar` grava a meta da obra A dentro
+                        do `site.metas` da obra B. É o mesmo remendo que a Torre já documenta. */}
+                    <MetasDaObraSection key={`metas-${selectedSite.id}`} site={selectedSite} />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
           {fasesDaObra.length === 0 && (
             <p className="mt-2 rounded-lg border border-[#eab308]/40 bg-[#eab308]/10 px-3 py-2 text-[10px] leading-4 text-[#fbbf24]">
               ⚠️ Esta obra ainda não tem fases cadastradas — a lista acima está usando as oito
