@@ -119,3 +119,45 @@ test('🔴 trocar de empresa LIMPA o cadastro; recarregar sem sinal o MANTÉM', 
     'e o persist o guarda, porque F5 sem sinal no canteiro não pode perder o vínculo')
   assert.match(part![0], /minhaObra: s\.minhaObra/)
 })
+
+// ─── 🔴 O raio da cerca, que não tinha onde ser digitado ──────────────────────
+
+test('🔴 o raio efetivo é obra → empresa → 5 km, nessa ordem', async () => {
+  const tela = await semComentario('./index.tsx')
+  assert.match(tela, /obra\?\.raioM \?\? cltSettings\.raioPontoPadraoM \?\? RAIO_PADRAO_M/,
+    'a obra manda sobre o padrão da empresa, e o padrão sobre a constante — inverter faria o '
+    + 'canteiro de 300 m voltar a aceitar batida a 5 km')
+})
+
+test('🔴 os três parâmetros do ponto ganharam formulário — eram letra morta', async () => {
+  // ⚠️ `raioPontoM`, `raioPontoPadraoM`, `toleranciaPontoMin` e `bancoHorasMeses` existiam no tipo,
+  // eram lidos pelo motor, e NENHUMA tela os gravava. Na prática: cerca sempre de 5 km, tolerância
+  // sempre zero, prazo sempre de 6 meses — configuráveis só por edição direta do banco.
+  const dialogo = await semComentario('../torre-de-controle/components/ObraDialog.tsx')
+  assert.match(dialogo, /register\('raioPontoM'\)/, 'o raio POR OBRA, colado nas coordenadas')
+  assert.match(dialogo, /raioPontoM,/, 'e ele precisa chegar ao objeto gravado')
+
+  const painel = await semComentario('../mao-de-obra/components/PontoEletronicoPanel.tsx')
+  for (const campo of ['raioPontoPadraoM', 'toleranciaPontoMin', 'bancoHorasMeses']) {
+    assert.ok(painel.includes(`updateCLTSettings({ ${campo}:`),
+      `${campo} precisa ter onde ser digitado — sem isso o motor lê um valor que ninguém escolheu`)
+  }
+})
+
+test('🔴 raio vazio vira `undefined`, NUNCA 0', async () => {
+  const dialogo = await semComentario('../torre-de-controle/components/ObraDialog.tsx')
+  assert.match(dialogo, /Number\.isFinite\(parsedRaio\) && parsedRaio > 0 \? parsedRaio : undefined/,
+    'raio zero bloquearia todo mundo, inclusive quem está dentro do canteiro')
+
+  const schema = await semComentario('../torre-de-controle/schemas.ts')
+  assert.match(schema, /Number\(v\) >= 50 && Number\(v\) <= 50_000/,
+    'piso de 50 m: o GPS de celular erra de 10 a 50 m, e `avaliarCerca` recusa quando a precisão '
+    + 'é maior que o raio — com 20 m, TODA batida cairia na justificativa obrigatória')
+})
+
+test('🔴 a tela de Ajustes abre mesmo sem ninguém vinculado', async () => {
+  const painel = await semComentario('../mao-de-obra/components/PontoEletronicoPanel.tsx')
+  assert.match(painel, /visao === 'parametros' \? <Parametros \/> : comPonto\.length === 0/,
+    'é justamente onde se configura a cerca ANTES de o primeiro funcionário existir — o aviso de '
+    + '"nenhum vínculo" bloqueava as quatro visões')
+})

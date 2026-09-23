@@ -25,7 +25,7 @@ function blankDefaults(): SiteFormValues {
     buildingType: '', totalArea: 0, floors: 0,
     numeroContrato: '', orcamentoBRL: 0, precoM2: 0,
     startDate: '', expectedEnd: '',
-    lat: '', lng: '',
+    lat: '', lng: '', raioPontoM: '',
   }
 }
 
@@ -82,6 +82,7 @@ export function ObraDialog() {
         expectedEnd:  existing.expectedEnd,
         lat:          existing.lat  != null ? String(existing.lat)  : '',
         lng:          existing.lng  != null ? String(existing.lng)  : '',
+        raioPontoM:   existing.raioPontoM != null ? String(existing.raioPontoM) : '',
       })
     } else if (isNew) {
       reset(blankDefaults())
@@ -116,6 +117,10 @@ export function ObraDialog() {
     const parsedLng = values.lng ? Number(values.lng) : null
     const lat = parsedLat !== null && Number.isFinite(parsedLat) ? parsedLat : null
     const lng = parsedLng !== null && Number.isFinite(parsedLng) ? parsedLng : null
+    // ⚠️ Vazio vira `undefined` (usa o padrão da empresa), NUNCA 0 — raio zero bloquearia todo
+    // mundo, inclusive quem está dentro do canteiro.
+    const parsedRaio = values.raioPontoM ? Number(values.raioPontoM) : NaN
+    const raioPontoM = Number.isFinite(parsedRaio) && parsedRaio > 0 ? parsedRaio : undefined
     const payload = {
       ...values,
       code: values.code?.trim() || `OBR-${String(sites.length + 1).padStart(3, '0')}`,
@@ -138,6 +143,7 @@ export function ObraDialog() {
       projectId: values.projectId || null,
       lat,
       lng,
+      raioPontoM,
       risks: existing?.risks ?? [],
     }
 
@@ -327,6 +333,27 @@ export function ObraDialog() {
                   <input type="number" step="any" {...register('lng')} placeholder="-46.6527" className={inp(!!errors.lng)} />
                 </Field>
               </div>
+
+              {/* ─── A cerca do ponto ───────────────────────────────────────────────────────
+                  ⚠️ O campo NÃO EXISTIA. `ConstructionSite.raioPontoM` era lido pela tela de bater
+                  ponto e nenhum formulário o gravava — na prática a cerca era sempre 5 km, e o
+                  próprio comentário do tipo prometia "onde for canteiro, baixe para algumas
+                  centenas de metros". Não havia onde. */}
+              <Field
+                label="Raio da cerca do ponto (m)"
+                error={errors.raioPontoM?.message as string | undefined}
+              >
+                <input
+                  type="number" step="50" min="50" max="50000" {...register('raioPontoM')}
+                  placeholder="5000" className={inp(!!errors.raioPontoM)}
+                />
+              </Field>
+              <p className="-mt-1 text-[11px] leading-4 text-[#a3a3a3]">
+                Distância máxima da obra em que o funcionário consegue bater o ponto. Em branco usa
+                o padrão da empresa (5 km). ⚠️ Abaixo de umas poucas centenas de metros, o erro
+                normal do GPS de celular passa a recusar quem está no canteiro — e aí toda batida
+                cai na justificativa obrigatória.
+              </p>
             </Section>
 
             {/* Descrição */}

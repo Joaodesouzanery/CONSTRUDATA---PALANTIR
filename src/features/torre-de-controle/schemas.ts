@@ -37,6 +37,21 @@ export const siteSchema = z.object({
     (v) => !v || (!isNaN(Number(v)) && Number(v) >= -180 && Number(v) <= 180),
     'Longitude inválida (entre -180 e 180)'
   ),
+  /**
+   * Raio da cerca do ponto eletrônico, em metros.
+   *
+   * ⚠️ **Piso de 50 m, e não é capricho.** `avaliarCerca` devolve `precisao-insuficiente` quando a
+   * precisão informada pelo aparelho é maior que o raio — e um GPS de celular erra de 10 a 50 m em
+   * condição normal. Com raio de 20 m, TODA batida cairia na justificativa obrigatória, todo dia,
+   * e em uma semana o campo estaria preenchido com "aaaaa".
+   *
+   * ⚠️ Teto de 50 km: acima disso não é cerca, é a cidade inteira — e uma cerca que nunca recusa
+   * nada dá a impressão de estar conferindo algo.
+   */
+  raioPontoM: z.string().optional().refine(
+    (v) => !v || (!isNaN(Number(v)) && Number(v) >= 50 && Number(v) <= 50_000),
+    'Raio inválido (entre 50 m e 50.000 m)'
+  ),
 })
 
 export type SiteFormValues = z.infer<typeof siteSchema>

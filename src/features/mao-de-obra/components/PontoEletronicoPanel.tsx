@@ -11,10 +11,11 @@
  */
 import { useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { Clock, AlertTriangle, MapPin, CheckCircle2, Users, PencilLine } from 'lucide-react'
+import { Clock, AlertTriangle, MapPin, CheckCircle2, Users, PencilLine, ExternalLink } from 'lucide-react'
 import { usePontoStore } from '@/store/pontoStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import {
   jornadasDoPeriodo, conferirJornadasCLT, TEXTO_DA_PENDENCIA,
   type Jornada, type PendenciaDaJornada,
@@ -22,16 +23,21 @@ import {
 import { RelatoriosDoPontoPanel } from './RelatoriosDoPontoPanel'
 import { AjusteDeBatidaDialog } from './AjusteDeBatidaDialog'
 import { cn, hojeLocalISO } from '@/lib/utils'
+import { distanciaLegivel } from '@/lib/geo'
 import { saldoDoPeriodo } from '../utils/bancoDeHoras'
 import type { CLTSettings, Worker, WorkerAbsence } from '@/types'
 
-type Visao = 'espelho' | 'conferencia' | 'relatorios'
+type Visao = 'espelho' | 'conferencia' | 'relatorios' | 'parametros'
 
 const VISOES: Array<{ id: Visao; rotulo: string; ajuda: string }> = [
   { id: 'espelho',     rotulo: 'Espelho do mês', ajuda: 'Uma pessoa, um mês — o documento do art. 74' },
   { id: 'conferencia', rotulo: 'Conferência',    ajuda: 'O que precisa de decisão do gestor, na obra inteira' },
   { id: 'relatorios',  rotulo: 'Relatórios',     ajuda: 'Espelho e banco de horas em PDF e Excel' },
+  { id: 'parametros',  rotulo: 'Ajustes',        ajuda: 'Raio da cerca, tolerância e prazo do banco de horas' },
 ]
+
+/** O padrão quando nem a obra nem a empresa definem. Espelha `RAIO_PADRAO_M` da tela do ponto. */
+const RAIO_PADRAO_M = 5000
 
 /** `yyyy-MM` → primeiro e último dia. */
 function limitesDoMes(mes: string): { de: string; ate: string } {
@@ -100,7 +106,9 @@ export function PontoEletronicoPanel() {
         />
       </div>
 
-      {comPonto.length === 0 ? <SemVinculo /> : visao === 'espelho' ? (
+      {/* ⚠️ "Ajustes" aparece mesmo sem ninguém vinculado: é justamente onde se configura a cerca
+          ANTES de o primeiro funcionário existir. `SemVinculo` bloqueava as quatro visões. */}
+      {visao === 'parametros' ? <Parametros /> : comPonto.length === 0 ? <SemVinculo /> : visao === 'espelho' ? (
         <Espelho
           workers={comPonto} workerId={workerId} setWorkerId={setWorkerId}
           jornadas={jornadas} de={de} ate={ate}
@@ -110,8 +118,10 @@ export function PontoEletronicoPanel() {
           workers={comPonto} jornadas={jornadas} violacoes={violacoes} absences={absences}
           cltSettings={cltSettings} feriados={feriados} de={de} ate={ate}
         />
-      ) : (
+      ) : visao === 'relatorios' ? (
         <RelatoriosDoPontoPanel jornadas={jornadas} workers={comPonto} de={de} ate={ate} />
+      ) : (
+        <Parametros />
       )}
     </div>
   )
@@ -436,5 +446,166 @@ function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode
       <p className="border-b border-[#525252] bg-[#333] px-3 py-2 text-xs font-semibold text-[#f5f5f5]">{titulo}</p>
       {children}
     </div>
+  )
+}
+
+// ─── Ajustes do ponto ─────────────────────────────────────────────────────────
+
+/**
+ * Os três números do ponto que existiam no tipo e **nenhuma tela gravava**.
+ *
+ * ⚠️ `raioPontoPadraoM`, `toleranciaPontoMin` e `bancoHorasMeses` estavam em `CLTSettings` desde
+ * que o ponto foi desenhado, eram lidos pelo motor, e não tinham formulário nenhum. Na prática: a
+ * cerca era sempre 5 km, a tolerância do art. 58 §1º era sempre zero e o prazo do art. 59 §5º era
+ * sempre 6 meses — todos configuráveis só por edição direta do banco.
+ *
+ * ⚠️ Fica AQUI, e não junto das tabelas de INSS na Folha: quem mexe no raio da cerca é quem
+ * administra o ponto, não o contador — e a configuração tem de ficar onde o efeito dela se vê.
+ */
+function Parametros() {
+  const { cltSettings, updateCLTSettings } = useMaoDeObraStore(
+    useShallow((s) => ({ cltSettings: s.cltSettings, updateCLTSettings: s.updateCLTSettings })),
+  )
+  const sites = useTorreStore(useShallow((s) => s.sites))
+  const padrao = cltSettings.raioPontoPadraoM ?? RAIO_PADRAO_M
+
+  const ativas = useMemo(
+    () => sites.filter((s) => s.ativa !== false).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+    [sites],
+  )
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* ⚠️ `updateCLTSettings` NÃO tem gate de papel, e isso é deliberado: as policies de
+          `clt_settings` exigem só a organização, e a regra da casa é o gate espelhar a RLS — nem
+          mais, nem menos. Ou seja: esta tela é uma trava de vitrine, não de servidor. Se algum dia
+          o raio virar controle de fraude, a trava de verdade é uma migração no `with check`. */}
+      <Bloco titulo="Parâmetros do ponto (valem para toda a empresa)">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Numero
+            rotulo="Raio padrão da cerca (m)" valor={cltSettings.raioPontoPadraoM} placeholder={String(RAIO_PADRAO_M)}
+            ajuda="Distância máxima da obra para bater o ponto, quando a obra não define a sua. 5 km é grande de propósito: a equipe roda a cidade fazendo manutenção de rede."
+            onCommit={(v) => updateCLTSettings({ raioPontoPadraoM: v })}
+          />
+          <Numero
+            rotulo="Tolerância por período (min)" valor={cltSettings.toleranciaPontoMin} placeholder="0"
+            ajuda="Art. 58 §1º: até 5 minutos na entrada e 5 na saída não contam como hora extra nem como atraso. Passando disso, o período INTEIRO conta."
+            onCommit={(v) => updateCLTSettings({ toleranciaPontoMin: v })}
+          />
+          <Numero
+            rotulo="Prazo do banco de horas (meses)" valor={cltSettings.bancoHorasMeses} placeholder="6"
+            ajuda="Art. 59 §5º: acordo individual escrito dá 6 meses; acordo coletivo, até 12. Passado o prazo, a hora não compensada vira hora extra a pagar — não evapora."
+            onCommit={(v) => updateCLTSettings({ bancoHorasMeses: v })}
+          />
+        </div>
+      </Bloco>
+
+      {/* A tabela que responde "por que fulano não consegue bater o ponto?" sem adivinhação. */}
+      <Bloco titulo="A cerca, obra por obra">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-[11px]">
+            <thead>
+              <tr className="border-b border-[#525252] text-left text-[#adadad]">
+                <th className="px-2 py-1.5 font-medium">Obra</th>
+                <th className="px-2 py-1.5 font-medium">Coordenada</th>
+                <th className="px-2 py-1.5 text-right font-medium">Raio em vigor</th>
+                <th className="px-2 py-1.5 font-medium">De onde vem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ativas.map((o) => {
+                const temCoord = o.lat != null && o.lng != null
+                const raio = o.raioPontoM ?? padrao
+                return (
+                  <tr key={o.id} className="border-b border-[#3f3f3f]">
+                    <td className="px-2 py-1.5 text-[#e5e5e5]">{o.name}</td>
+                    <td className="px-2 py-1.5">
+                      {temCoord
+                        ? <span className="text-[#86efac]">{o.lat!.toFixed(4)}, {o.lng!.toFixed(4)}</span>
+                        : (
+                          /* ⚠️ Sem coordenada não há cerca: a batida entra marcada para
+                             conferência e o funcionário não tem culpa nenhuma. Hoje isso só
+                             aparecia no celular dele. */
+                          <span className="text-[#fbbf24]">sem coordenada — a cerca não é avaliada</span>
+                        )}
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-[#e5e5e5]">
+                      {temCoord ? distanciaLegivel(raio) : '—'}
+                    </td>
+                    <td className="px-2 py-1.5 text-[#a3a3a3]">
+                      {o.raioPontoM != null ? 'desta obra' : 'padrão da empresa'}
+                    </td>
+                  </tr>
+                )
+              })}
+              {ativas.length === 0 && (
+                <tr><td colSpan={4} className="px-2 py-4 text-center text-[#a3a3a3]">Nenhuma obra ativa.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-[10px] leading-4 text-[#6b6b6b]">
+          A coordenada e o raio de cada obra são cadastrados na <b>Torre de Controle → a obra →
+          Editar</b>. A cerca é medida a partir da obra do <b>cadastro do funcionário</b>, não de
+          uma obra escolhida na hora de bater.
+        </p>
+      </Bloco>
+
+      {/* ⚠️ Para você conferir que a cerca responde, sem virar "funcionário". Só funciona se o SEU
+          cadastro de funcionário estiver ligado à sua conta em Funcionários › Contas do Ponto. */}
+      <Bloco titulo="Conferir na prática">
+        <p className="text-[11px] leading-5 text-[#c9c9c9]">
+          Abra a tela do funcionário para ver a localização sendo lida e a cerca respondendo. É a
+          mesma tela que eles usam.
+        </p>
+        <a
+          href="/app/ponto" target="_blank" rel="noreferrer"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#3d3d3d]"
+        >
+          <ExternalLink size={13} /> Abrir a tela de bater ponto
+        </a>
+        <p className="mt-2 text-[10px] leading-4 text-[#6b6b6b]">
+          Se ela disser que a sua conta não está ligada a um cadastro, é porque falta o vínculo em
+          <b> Funcionários › Contas do Ponto Eletrônico</b> — inclusive para quem é diretor.
+        </p>
+      </Bloco>
+    </div>
+  )
+}
+
+/**
+ * Campo numérico com rascunho local.
+ *
+ * ⚠️ Commit no blur, não a cada tecla: `updateCLTSettings` enfileira uma op de sincronização a cada
+ * chamada, e digitar "5000" mandaria quatro.
+ */
+function Numero({ rotulo, valor, placeholder, ajuda, onCommit }: {
+  rotulo: string
+  valor: number | undefined
+  placeholder: string
+  ajuda: string
+  onCommit: (v: number | undefined) => void
+}) {
+  const [rascunho, setRascunho] = useState<string | null>(null)
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-medium text-[#d4d4d4]">{rotulo}</span>
+      <input
+        type="number" min="0" inputMode="numeric"
+        value={rascunho ?? (valor != null ? String(valor) : '')}
+        placeholder={placeholder}
+        onChange={(e) => setRascunho(e.target.value)}
+        onBlur={() => {
+          if (rascunho === null) return
+          const n = Number(rascunho)
+          // Vazio limpa (volta ao padrão declarado); lixo e negativo não gravam nada.
+          onCommit(rascunho.trim() === '' ? undefined : (Number.isFinite(n) && n >= 0 ? n : undefined))
+          setRascunho(null)
+        }}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+        className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-2.5 py-1.5 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/60"
+      />
+      <span className="text-[10px] leading-4 text-[#6b6b6b]">{ajuda}</span>
+    </label>
   )
 }
