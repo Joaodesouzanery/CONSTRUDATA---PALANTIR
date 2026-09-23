@@ -18,6 +18,10 @@ import { podeEscrever } from '@/lib/roles'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { hojeLocalISO } from '@/lib/utils'
 import { batidaParaRow, dataDaJornada, jornadaAberta, montarAjuste, montarBatida, type DadosDaBatida } from '@/features/ponto/batida'
+import {
+  montarSolicitacao, solicitacaoParaRow,
+  type DadosDaSolicitacao, type SolicitacaoDePonto,
+} from '@/features/ponto/solicitacao'
 import type { RegistroDePonto, TipoDeBatida, Worker } from '@/types'
 import type { UserRole } from '@/types/database'
 
@@ -115,6 +119,17 @@ interface Estado {
   parametros: ParametrosDoPonto
   /** `yyyy-MM-dd` dos feriados dos últimos 13 meses. */
   feriados: string[]
+  /**
+   * Pedidos de correção de ponto.
+   *
+   * ⚠️ Coleção DESTE store, e não de um store novo: o `pontoStore` já é o único que o colaborador
+   * sincroniza. Um store próprio exigiria as três registrações (`resetTenantScopedRuntimeStores`,
+   * `TENANT_STORE_DEFS`, `STORE_KEYS`) **e** mexer no `defsDoPapel` outra vez.
+   *
+   * ⚠️ E tabela SEPARADA no banco, nunca uma `origem` nova em `ponto_registros`: o motor de jornada
+   * não filtra por origem, e um pedido pendente ali mudaria o banco de horas antes de ser aprovado.
+   */
+  solicitacoes: SolicitacaoDePonto[]
   motivoSemCadastro: MotivoSemCadastro | null
 
   pendingSync: PendingOp[]
@@ -125,6 +140,8 @@ interface Estado {
   registrar: (dados: DadosDaBatida) => string
   ajustar: (dados: Parameters<typeof montarAjuste>[0]) => string
   puxarMeuContexto: () => Promise<void>
+  solicitar: (dados: DadosDaSolicitacao) => string
+  responderSolicitacao: (id: string, situacao: 'aprovada' | 'recusada', resposta: string, ajusteId?: string) => void
 
   ensureTenantScope: (organizationId: string) => void
   clearData: () => void
@@ -151,6 +168,24 @@ function ctx() {
     userId: user?.id ?? 'pending',
     nome: profile?.full_name || profile?.email || 'alguém',
   }
+}
+
+interface SolicitacaoRow {
+  id: string
+  worker_id: string
+  auth_user_id: string
+  data: string
+  acao: string
+  tipo: string
+  hora_pedida: string | null
+  corrige_id: string | null
+  motivo: string
+  situacao: string
+  respondida_por: string | null
+  respondida_em: string | null
+  resposta: string | null
+  ajuste_id: string | null
+  created_at: string | null
 }
 
 interface RowLida {
@@ -180,6 +215,7 @@ export const usePontoStore = create<Estado>()(
         obrasDaEmpresa: [],
         parametros: {},
         feriados: [],
+        solicitacoes: [],
         motivoSemCadastro: 'carregando',
         pendingSync: [],
         syncStatus: 'idle',
@@ -234,6 +270,61 @@ export const usePontoStore = create<Estado>()(
           // exigido pela Portaria 671 só apareceria na próxima vez que a tela fosse aberta.
           void get().flush().then(() => get().pull())
           return registro.id
+        },
+
+        /**
+         * O funcionário pede a correção. Não vira batida: vira pedido.
+         *
+         * ⚠️ O gate é `ROLES_PONTO_REGISTRAR`, o mesmo de bater — pedir correção do próprio ponto é
+         * direito de quem bate, não privilégio de gestor.
+         */
+        solicitar: (dados) => {
+          const p = podeRegistrarPonto()
+          if (!p.pode && p.motivo === 'papel_insuficiente') {
+            set({ syncError: 'O seu perfil não permite pedir correção de ponto.' })
+            return ''
+          }
+          const { orgId, userId } = ctx()
+          const pedido = montarSolicitacao(dados, { id: crypto.randomUUID(), agora: new Date().toISOString() })
+          set((st) => ({
+            solicitacoes: [pedido, ...st.solicitacoes],
+            pendingSync: [...st.pendingSync, makeOp({
+              entity: 'ponto_solicitacao', type: 'insert', recordId: pedido.id,
+              row: solicitacaoParaRow(pedido, orgId, userId), table: 'ponto_solicitacoes',
+            })],
+          }))
+          void get().flush()
+          return pedido.id
+        },
+
+        /**
+         * O gestor decide. Aprovar NÃO cria a batida aqui — quem cria é `ajustar()`, pelo caminho
+         * que já existe e já está coberto pelas policies; esta ação só carimba o desfecho.
+         *
+         * ⚠️ Separado de propósito: se a aprovação criasse a batida por dentro, uma falha de rede
+         * no meio deixaria pedido aprovado sem ajuste, ou ajuste sem pedido carimbado. Duas ações,
+         * duas ops, cada uma com a sua trava no servidor.
+         */
+        responderSolicitacao: (id, situacao, resposta, ajusteId) => {
+          if (!podeGerirPonto().pode) {
+            set({ syncError: 'Só um gestor pode responder a um pedido de correção.' })
+            return
+          }
+          const atual = get().solicitacoes.find((x) => x.id === id)
+          if (!atual || atual.situacao !== 'pendente') return
+          const { orgId, userId, nome } = ctx()
+          const resolvida: SolicitacaoDePonto = {
+            ...atual, situacao, resposta: resposta.trim() || undefined,
+            respondidaPor: nome, respondidaEm: new Date().toISOString(), ajusteId,
+          }
+          set((st) => ({
+            solicitacoes: st.solicitacoes.map((x) => (x.id === id ? resolvida : x)),
+            pendingSync: [...st.pendingSync, makeOp({
+              entity: 'ponto_solicitacao', type: 'insert', recordId: id,
+              row: solicitacaoParaRow(resolvida, orgId, userId), table: 'ponto_solicitacoes',
+            })],
+          }))
+          void get().flush()
         },
 
         ajustar: (dados) => {
@@ -382,6 +473,7 @@ export const usePontoStore = create<Estado>()(
         clearData: () => set({
           registros: [], activeOrgId: null, syncError: null,
           meuCadastro: null, minhaObra: null, obrasDaEmpresa: [], parametros: {}, feriados: [],
+          solicitacoes: [],
           motivoSemCadastro: 'carregando',
         }),
 
@@ -432,6 +524,33 @@ export const usePontoStore = create<Estado>()(
             syncStatus: 'idle',
             lastSyncedAt: new Date().toISOString(),
           }))
+
+          // ⚠️ Tabela nova, e a migração é de aplicação manual: num banco onde ela ainda não rodou,
+          // `pullTable` devolve `null` (PGRST205) e o local é PRESERVADO. Já `[]` — tabela
+          // existente e vazia — apaga o local, que é o certo. A diferença entre os dois é o que
+          // impede um pedido feito offline de sumir antes de subir.
+          const linhas = await pullTable<SolicitacaoRow>('ponto_solicitacoes', { column: 'data', ascending: false })
+          if (!linhas) return
+          const pedidos: SolicitacaoDePonto[] = linhas.map((r) => ({
+            id: r.id,
+            workerId: r.worker_id,
+            authUserId: r.auth_user_id,
+            data: r.data,
+            acao: r.acao as SolicitacaoDePonto['acao'],
+            tipo: r.tipo as TipoDeBatida,
+            horaPedida: String(r.hora_pedida ?? '').slice(0, 5),
+            corrigeId: r.corrige_id ?? undefined,
+            motivo: r.motivo,
+            situacao: r.situacao as SolicitacaoDePonto['situacao'],
+            respondidaPor: r.respondida_por ?? undefined,
+            respondidaEm: r.respondida_em ?? undefined,
+            resposta: r.resposta ?? undefined,
+            ajusteId: r.ajuste_id ?? undefined,
+            criadaEm: r.created_at ?? r.data,
+          }))
+          set((s) => ({
+            solicitacoes: mergePull(pedidos, s.solicitacoes, s.pendingSync, 'ponto_solicitacoes'),
+          }))
         },
       }
     },
@@ -461,6 +580,7 @@ export const usePontoStore = create<Estado>()(
           obrasDaEmpresa: s.obrasDaEmpresa,
           parametros: s.parametros,
           feriados: s.feriados,
+          solicitacoes: s.solicitacoes,
         }
       },
     },

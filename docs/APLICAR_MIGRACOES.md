@@ -168,6 +168,34 @@ parâmetro e lê sempre a organização de quem chamou.
 A migração termina com um `raise notice` conferindo que a função responde. Reaplicar é seguro
 (`create or replace`).
 
+### 🆕 23/09/2026 — `20260923130000_ponto_solicitacoes` (**depois** da anterior)
+
+O pedido de correção de ponto feito pelo próprio funcionário. Sem ela, o botão "Pedir correção"
+aparece e o servidor recusa com 42501 — `ponto_insert` exige literalmente `origem = 'app'` e
+`ponto_insert_ajuste` exige papel de gestor.
+
+⚠️ **Por que tabela própria e não uma `origem` nova em `ponto_registros`.** Quatro razões, cada uma
+bastando sozinha:
+
+1. 🔴 **O espelho contamina na hora.** Nem `jornadasDoPeriodo` nem `jornadaAberta` filtram por
+   `origem`: as duas montam a jornada **por paridade** sobre todos os registros. Um pedido pendente
+   ali mudaria o intervalo, os minutos trabalhados e **o banco de horas antes de qualquer
+   aprovação** — sem nenhum erro na tela.
+2. 🔴 **O NSR.** O gatilho atribui número a todo insert: o pedido consumiria um número da sequência
+   da Portaria 671, e o espelho imprimiria NSRs sem marcação correspondente.
+3. 🔴 **O cliente apagaria a marca.** O `pull` faz `origem === 'ajuste' ? 'ajuste' : 'app'` — valor
+   desconhecido volta carimbado como batida do funcionário.
+4. Pedido tem ciclo de vida, e `trg_ponto_congelar` deixa mutável só `site_id`, `payload` e
+   `deleted_at`.
+
+Com tabela própria, **o motor de jornada não muda uma linha**.
+
+⚠️ A migração já inclui a policy restritiva `colaborador_so_o_proprio_pedido` — a varredura de
+`20260918160000` é um retrato do schema, e tabela criada depois nasce **liberada**. Por isso **não
+é preciso reaplicar** a `20260918160000`: esta se protege sozinha.
+
+Termina com um `raise notice` conferindo as 6 policies.
+
 ### `20260829120000_auditoria_generica` — quem criou, quem alterou, quem apagou
 
 Liga a auditoria em **toda tabela de negócio**: gatilho genérico gravando na `audit_log` (que já

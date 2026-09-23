@@ -21,8 +21,12 @@ import { usePermissaoEscrita } from '@/lib/roles'
 import { avaliarCerca, distanciaLegivel, TEXTO_DO_MOTIVO } from '@/lib/geo'
 import { cn, hojeLocalISO } from '@/lib/utils'
 import { useLocalizacao } from './useLocalizacao'
-import { jornadaAberta, proximaBatida, ROTULO_DA_BATIDA } from './batida'
+import { jornadaAberta, proximaBatida, ROTULO_DA_BATIDA, SEQUENCIA_DA_JORNADA } from './batida'
 import { jornadasDoPeriodo, TEXTO_DA_PENDENCIA } from './jornada'
+import {
+  podeSolicitar, TEXTO_SEM_PEDIR, TEXTO_DA_ACAO, TEXTO_DA_SITUACAO, MOTIVO_MINIMO,
+  type AcaoDaSolicitacao, type SolicitacaoDePonto,
+} from './solicitacao'
 import { saldoDoPeriodo, creditosAVencer, TEXTO_SEM_PREVISTO, MESES_DE_COMPENSACAO_PADRAO } from '@/features/mao-de-obra/utils/bancoDeHoras'
 import type { TipoDeBatida } from '@/types'
 
@@ -44,7 +48,8 @@ export function PontoPage() {
   const cltSettings = useMaoDeObraStore((s) => s.cltSettings)
   const {
     registros, registrar, pendingSync, syncError, ensureTenantScope, flush, pull,
-    meuCadastro, minhaObra, parametros, feriados, motivoSemCadastro, puxarMeuContexto,
+    meuCadastro, minhaObra, parametros, feriados, solicitacoes, solicitar,
+    motivoSemCadastro, puxarMeuContexto,
   } = usePontoStore(
     useShallow((s) => ({
       registros: s.registros, registrar: s.registrar, pendingSync: s.pendingSync,
@@ -52,10 +57,14 @@ export function PontoPage() {
       ensureTenantScope: s.ensureTenantScope, flush: s.flush, pull: s.pull,
       meuCadastro: s.meuCadastro, minhaObra: s.minhaObra,
       parametros: s.parametros, feriados: s.feriados,
+      solicitacoes: s.solicitacoes, solicitar: s.solicitar,
       motivoSemCadastro: s.motivoSemCadastro, puxarMeuContexto: s.puxarMeuContexto,
     })),
   )
   const orgId = useAuth((s) => s.profile?.organization_id)
+  // ⚠️ A policy `ponto_sol_insert` exige `auth_user_id = auth.uid()`: o pedido tem de sair com a
+  // conta LOGADA, nunca com um id guardado no cadastro. É a mesma regra da batida.
+  const authUserId = useAuth((s) => s.user?.id)
   const signOut = useAuth((s) => s.signOut)
   const geo = useLocalizacao()
   /** A aba aberta. "Bater" é o padrão: quem abre esta tela abre para bater. */
@@ -184,6 +193,13 @@ export function PontoPage() {
       parametros.bancoHorasMeses ?? cltSettings.bancoHorasMeses ?? MESES_DE_COMPENSACAO_PADRAO,
     )
   }, [eu, registros, mes, settingsDoBanco, feriadosSet, parametros, cltSettings])
+
+  /** Os pedidos de correção desta pessoa, do mais recente para o mais antigo. */
+  const meusPedidos = useMemo(
+    () => (eu ? solicitacoes.filter((x) => x.workerId === eu.workerId) : [])
+      .slice().sort((a, b) => b.data.localeCompare(a.data)),
+    [solicitacoes, eu],
+  )
 
   const proxima = proximaBatida(doDia)
   const IconeDoBotao = ICONE[proxima]
@@ -398,6 +414,8 @@ export function PontoPage() {
         <MeuMes
           mes={mes} setMes={setMes} jornadas={minhasJornadas}
           semJanela={registros.length === 0}
+          meus={meusPedidos}
+          onPedir={(d) => solicitar({ ...d, workerId: eu.workerId, authUserId: authUserId ?? '' })}
         />
       ) : aba === 'banco' ? (
         <MeuBanco mes={mes} setMes={setMes} saldo={saldo} aVencer={aVencer}
@@ -573,11 +591,13 @@ function Moldura({ children }: { children: React.ReactNode }) {
  * dois lerem números diferentes para a mesma jornada, e aí "quem está certo" vira discussão — que
  * é exatamente o que um registro de ponto existe para evitar.
  */
-function MeuMes({ mes, setMes, jornadas, semJanela }: {
+function MeuMes({ mes, setMes, jornadas, semJanela, meus, onPedir }: {
   mes: string
   setMes: (v: string) => void
   jornadas: ReturnType<typeof jornadasDoPeriodo>
   semJanela: boolean
+  meus: readonly SolicitacaoDePonto[]
+  onPedir: (d: { data: string; acao: AcaoDaSolicitacao; tipo: TipoDeBatida; horaPedida: string; motivo: string }) => void
 }) {
   const totalMin = jornadas.reduce((s, j) => s + j.minutosTrabalhados, 0)
 
@@ -642,9 +662,11 @@ function MeuMes({ mes, setMes, jornadas, semJanela }: {
           </p>
         </>
       )}
+      <PedirCorrecao meus={meus} onPedir={onPedir} />
+
       <p className="text-center text-[10px] leading-4 text-[#6b6b6b]">
-        Encontrou algo errado? Avise o responsável — só ele corrige um registro de ponto, e a
-        marcação original nunca é apagada.
+        Só o responsável corrige um registro de ponto, e a marcação original nunca é apagada — a
+        correção entra como um registro novo, ao lado dela.
       </p>
     </div>
   )
@@ -736,6 +758,147 @@ function Cartao({ rotulo, valor, tom }: { rotulo: string; valor: string; tom?: s
     <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] px-2 py-2 text-center">
       <p className="text-[10px] text-[#a3a3a3]">{rotulo}</p>
       <p className="text-base font-bold tabular-nums" style={{ color: tom ?? '#f5f5f5' }}>{valor}</p>
+    </div>
+  )
+}
+
+// ─── Pedir correção ───────────────────────────────────────────────────────────
+
+/**
+ * O funcionário pede; o gestor decide.
+ *
+ * ⚠️ **Isto NÃO altera o ponto.** O pedido vai para uma tabela própria e só vira marcação quando o
+ * responsável aprova — e, mesmo então, como um ajuste NOVO: a batida original nunca é apagada nem
+ * reescrita (`trg_ponto_congelar`). A tela diz isso, porque quem pede precisa saber que não está
+ * "corrigindo o seu ponto" sozinho.
+ */
+function PedirCorrecao({ meus, onPedir }: {
+  meus: readonly SolicitacaoDePonto[]
+  onPedir: (d: {
+    data: string; acao: AcaoDaSolicitacao; tipo: TipoDeBatida; horaPedida: string; motivo: string
+  }) => void
+}) {
+  const [aberto, setAberto] = useState(false)
+  const [data, setData] = useState(() => hojeLocalISO())
+  const [acao, setAcao] = useState<AcaoDaSolicitacao>('incluir')
+  const [tipo, setTipo] = useState<TipoDeBatida>('saida')
+  const [horaPedida, setHora] = useState('')
+  const [motivo, setMotivo] = useState('')
+
+  const impedimento = podeSolicitar({ data, tipo, motivo }, meus, hojeLocalISO())
+  const pronto = !!horaPedida && impedimento === null
+
+  function enviar() {
+    if (!pronto) return
+    onPedir({ data, acao, tipo, horaPedida, motivo: motivo.trim() })
+    setAberto(false); setHora(''); setMotivo('')
+    toast.success('Pedido enviado. O responsável vai analisar.')
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {meus.length > 0 && (
+        <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-3">
+          <p className="mb-1.5 text-xs font-semibold text-[#f5f5f5]">Meus pedidos</p>
+          <ul className="flex flex-col gap-1.5">
+            {meus.slice(0, 5).map((p) => (
+              <li key={p.id} className="text-[11px] leading-4">
+                <span className="text-[#d4d4d4]">
+                  {p.data.slice(8, 10)}/{p.data.slice(5, 7)} · {ROTULO_DA_BATIDA[p.tipo]} às {p.horaPedida}
+                </span>
+                <span className={cn(
+                  'ml-1.5 font-semibold',
+                  p.situacao === 'aprovada' ? 'text-[#4ade80]'
+                    : p.situacao === 'recusada' ? 'text-[#fca5a5]' : 'text-[#fbbf24]',
+                )}>
+                  {TEXTO_DA_SITUACAO[p.situacao]}
+                </span>
+                {p.resposta && <span className="block text-[10px] text-[#a3a3a3]">“{p.resposta}”</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {!aberto ? (
+        <button
+          type="button" onClick={() => setAberto(true)}
+          className="rounded-xl border border-[#525252] px-3 py-2.5 text-xs text-[#d4d4d4] hover:border-[#f97316]/50"
+        >
+          Pedir correção de uma marcação
+        </button>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-xl border border-[#f97316]/40 bg-[#f97316]/[0.06] p-3">
+          <p className="text-[11px] leading-4 text-[#a3a3a3]">
+            ⚠️ Isto <b>não altera</b> o seu ponto: envia um pedido ao responsável. Se ele aprovar, a
+            correção entra como um registro novo — a marcação original nunca é apagada.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-[10px] text-[#a3a3a3]">
+              Dia
+              <input type="date" value={data} max={hojeLocalISO()} onChange={(e) => setData(e.target.value)}
+                     className="mt-0.5 w-full rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1.5 text-xs text-[#f5f5f5]" />
+            </label>
+            <label className="text-[10px] text-[#a3a3a3]">
+              Horário
+              <input type="time" value={horaPedida} onChange={(e) => setHora(e.target.value)}
+                     className="mt-0.5 w-full rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1.5 text-xs text-[#f5f5f5]" />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-[10px] text-[#a3a3a3]">
+              O que houve
+              <select value={acao} onChange={(e) => setAcao(e.target.value as AcaoDaSolicitacao)}
+                      className="mt-0.5 w-full rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1.5 text-xs text-[#f5f5f5]">
+                {(Object.keys(TEXTO_DA_ACAO) as AcaoDaSolicitacao[]).map((a) => (
+                  <option key={a} value={a}>{TEXTO_DA_ACAO[a]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-[10px] text-[#a3a3a3]">
+              Qual marcação
+              <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoDeBatida)}
+                      className="mt-0.5 w-full rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1.5 text-xs text-[#f5f5f5]">
+                {SEQUENCIA_DA_JORNADA.map((b) => <option key={b.tipo} value={b.tipo}>{b.rotulo}</option>)}
+              </select>
+            </label>
+          </div>
+
+          <label className="text-[10px] text-[#a3a3a3]">
+            Motivo (o responsável vai ler)
+            <textarea
+              value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
+              placeholder="Ex.: esqueci de bater a saída, terminei o serviço na Rua X às 17h10"
+              className="mt-0.5 w-full resize-none rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1.5 text-xs text-[#f5f5f5]"
+            />
+          </label>
+
+          {/* ⚠️ O impedimento aparece ANTES do envio, com o motivo — não como um erro depois do
+              toque. Num celular, um botão que não responde é indistinguível de um app travado. */}
+          {impedimento && motivo.length > 0 && (
+            <p className="text-[10px] leading-4 text-[#fbbf24]">{TEXTO_SEM_PEDIR[impedimento]}</p>
+          )}
+
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setAberto(false)}
+                    className="flex-1 rounded-lg border border-[#525252] px-3 py-2 text-xs text-[#a3a3a3]">
+              Cancelar
+            </button>
+            <button
+              type="button" onClick={enviar} disabled={!pronto}
+              className="flex-1 rounded-lg bg-[#f97316] px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#3d3d3d] disabled:text-[#6b6b6b]"
+            >
+              Enviar pedido
+            </button>
+          </div>
+          <p className="text-[10px] text-[#6b6b6b]">
+            Mínimo de {MOTIVO_MINIMO} letras no motivo. Dá para pedir correção do mês atual e do
+            anterior.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

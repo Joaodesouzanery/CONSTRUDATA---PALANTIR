@@ -10,6 +10,7 @@
  * limpas serve para nada em fiscalização e para nada em juízo.
  */
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { useShallow } from 'zustand/react/shallow'
 import { Clock, AlertTriangle, MapPin, CheckCircle2, Users, PencilLine, ExternalLink } from 'lucide-react'
 import { usePontoStore } from '@/store/pontoStore'
@@ -25,6 +26,8 @@ import { AjusteDeBatidaDialog } from './AjusteDeBatidaDialog'
 import { cn, hojeLocalISO } from '@/lib/utils'
 import { distanciaLegivel } from '@/lib/geo'
 import { saldoDoPeriodo } from '../utils/bancoDeHoras'
+import { ROTULO_DA_BATIDA } from '@/features/ponto/batida'
+import { TEXTO_DA_ACAO, type SolicitacaoDePonto } from '@/features/ponto/solicitacao'
 import type { CLTSettings, Worker, WorkerAbsence } from '@/types'
 
 type Visao = 'espelho' | 'conferencia' | 'relatorios' | 'parametros'
@@ -62,6 +65,7 @@ export function PontoEletronicoPanel() {
   const [workerId, setWorkerId] = useState('')
 
   const registros = usePontoStore(useShallow((s) => s.registros))
+  const solicitacoes = usePontoStore(useShallow((s) => s.solicitacoes))
   const { workers, cltSettings, absences } = useMaoDeObraStore(
     useShallow((s) => ({ workers: s.workers, cltSettings: s.cltSettings, absences: s.absences })),
   )
@@ -117,6 +121,7 @@ export function PontoEletronicoPanel() {
         <Conferencia
           workers={comPonto} jornadas={jornadas} violacoes={violacoes} absences={absences}
           cltSettings={cltSettings} feriados={feriados} de={de} ate={ate}
+          solicitacoes={solicitacoes}
         />
       ) : visao === 'relatorios' ? (
         <RelatoriosDoPontoPanel jornadas={jornadas} workers={comPonto} de={de} ate={ate} />
@@ -263,7 +268,7 @@ function Pendencias({ lista }: { lista: PendenciaDaJornada[] }) {
 
 // ─── Conferência ──────────────────────────────────────────────────────────────
 
-function Conferencia({ workers, jornadas, violacoes, absences, cltSettings, feriados, de, ate }: {
+function Conferencia({ workers, jornadas, violacoes, absences, cltSettings, feriados, de, ate, solicitacoes }: {
   workers: Worker[]
   jornadas: Jornada[]
   violacoes: ReturnType<typeof conferirJornadasCLT>
@@ -272,6 +277,7 @@ function Conferencia({ workers, jornadas, violacoes, absences, cltSettings, feri
   feriados: ReadonlySet<string>
   de: string
   ate: string
+  solicitacoes: SolicitacaoDePonto[]
 }) {
   const [ajustando, setAjustando] = useState<Jornada | null>(null)
   const nome = useMemo(() => new Map(workers.map((w) => [w.id, w.name])), [workers])
@@ -306,8 +312,17 @@ function Conferencia({ workers, jornadas, violacoes, absences, cltSettings, feri
     return out.sort((a, b) => a.data.localeCompare(b.data))
   }, [workers, jornadas, absences, cltSettings, feriados, de, ate])
 
+  const pedidos = useMemo(
+    () => solicitacoes.filter((x) => x.situacao === 'pendente').sort((a, b) => a.data.localeCompare(b.data)),
+    [solicitacoes],
+  )
+
   return (
     <div className="flex flex-col gap-4">
+      {pedidos.length > 0 && (
+        <FilaDePedidos pedidos={pedidos} nome={nome} onAjustar={setAjustando} jornadas={jornadas} />
+      )}
+
       {abertasDeOntem.length > 0 && (
         <div className="flex items-start gap-2 rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 px-4 py-3 text-xs leading-5 text-[#fca5a5]">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
@@ -607,5 +622,92 @@ function Numero({ rotulo, valor, placeholder, ajuda, onCommit }: {
       />
       <span className="text-[10px] leading-4 text-[#6b6b6b]">{ajuda}</span>
     </label>
+  )
+}
+
+// ─── A fila de pedidos de correção ────────────────────────────────────────────
+
+/**
+ * O que o funcionário pediu, esperando decisão.
+ *
+ * ⚠️ **Aprovar aqui NÃO grava a batida sozinho.** O botão abre o mesmo `AjusteDeBatidaDialog` que
+ * já existe, já testado e já coberto pelas policies — o pedido só é carimbado como aprovado depois
+ * que o ajuste entra. Duas ações, duas ops: se a rede cair no meio, não fica pedido aprovado sem
+ * ajuste nem ajuste sem pedido.
+ *
+ * ⚠️ E fica no TOPO da conferência, acima das pendências: é o único bloco desta tela em que alguém
+ * está esperando resposta de uma pessoa. Enterrado embaixo, o pedido envelhece — e um pedido de
+ * ponto que envelhece vira reclamação.
+ */
+function FilaDePedidos({ pedidos, nome, jornadas, onAjustar }: {
+  pedidos: SolicitacaoDePonto[]
+  nome: Map<string, string>
+  jornadas: Jornada[]
+  onAjustar: (j: Jornada) => void
+}) {
+  const responder = usePontoStore((s) => s.responderSolicitacao)
+
+  return (
+    <div className="rounded-xl border border-[#3b82f6]/40 bg-[#3b82f6]/[0.07] p-4">
+      <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#93c5fd]">
+        <PencilLine size={15} /> Pedidos de correção ({pedidos.length})
+      </p>
+      <div className="flex flex-col gap-2">
+        {pedidos.map((p) => {
+          // A jornada do dia, para o diálogo de ajuste abrir já ancorado nela. Pode não existir:
+          // o caso mais comum é justamente "faltou bater a entrada", e aí não há jornada nenhuma.
+          const jornada = jornadas.find((j) => j.workerId === p.workerId && j.data === p.data)
+          return (
+            <div key={p.id} className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-3">
+              <p className="text-[11px] font-semibold text-[#f5f5f5]">
+                {nome.get(p.workerId) ?? 'sem nome'} · {diaBR(p.data)} ({diaDaSemana(p.data)})
+              </p>
+              <p className="mt-0.5 text-[11px] text-[#d4d4d4]">
+                {TEXTO_DA_ACAO[p.acao]} — <b>{ROTULO_DA_BATIDA[p.tipo]}</b> às <b>{p.horaPedida}</b>
+              </p>
+              <p className="mt-1 text-[11px] italic leading-4 text-[#a3a3a3]">“{p.motivo}”</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={!jornada}
+                  title={jornada
+                    ? 'Abre o ajuste já preenchido com o que foi pedido'
+                    : 'Não há jornada registrada neste dia — inclua a marcação pelo botão "ajustar" da jornada correspondente'}
+                  onClick={() => { if (jornada) onAjustar(jornada) }}
+                  className="rounded-lg bg-[#22c55e] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#16a34a] disabled:cursor-not-allowed disabled:bg-[#3d3d3d] disabled:text-[#6b6b6b]"
+                >
+                  Aprovar e ajustar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const motivo = window.prompt('Por que o pedido está sendo recusado? (o funcionário vai ler)')
+                    // ⚠️ Recusa SEM motivo não grava. Uma recusa muda o cartão de ponto de alguém;
+                    // "não" sem explicação é o que produz a próxima reclamação.
+                    if (motivo && motivo.trim().length >= 8) responder(p.id, 'recusada', motivo.trim())
+                    else if (motivo !== null) toast.error('Escreva o motivo da recusa, com pelo menos 8 letras.')
+                  }}
+                  className="rounded-lg border border-[#525252] px-3 py-1.5 text-[11px] text-[#a3a3a3] hover:text-[#fca5a5]"
+                >
+                  Recusar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => responder(p.id, 'aprovada', 'Ajuste já lançado por outro caminho.')}
+                  title="Use quando a correção já foi feita e o pedido só precisa ser fechado"
+                  className="rounded-lg border border-[#525252] px-3 py-1.5 text-[11px] text-[#a3a3a3] hover:text-[#f5f5f5]"
+                >
+                  Já resolvido
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <p className="mt-2 text-[10px] leading-4 text-[#6b6b6b]">
+        Aprovar abre o ajuste — a marcação original nunca é apagada, a correção entra ao lado dela,
+        com o seu nome e o motivo.
+      </p>
+    </div>
   )
 }
