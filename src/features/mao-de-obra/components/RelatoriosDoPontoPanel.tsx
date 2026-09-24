@@ -7,8 +7,9 @@
  * destino deste aqui é a contabilidade e, eventualmente, uma fiscalização.
  */
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { useShallow } from 'zustand/react/shallow'
-import { FileText, Sheet, AlertTriangle, Loader2 } from 'lucide-react'
+import { FileText, Sheet, AlertTriangle, Loader2, Package } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
@@ -18,6 +19,8 @@ import { openReportWindow, printHtmlInto, printViaIframe } from '@/lib/printRepo
 import { saldoDoPeriodo } from '../utils/bancoDeHoras'
 import { buildEspelhoHtml, type EspelhoDoTrabalhador, type EspelhoSecoes } from '../utils/espelhoPontoExport'
 import { exportEspelhoXlsx } from '../utils/espelhoPontoXlsx'
+import { baixarPacoteDoPonto } from '../utils/pacoteDoPontoZip'
+import { usePontoStore } from '@/store/pontoStore'
 import { cn, fmtDataBR } from '@/lib/utils'
 import type { Jornada } from '@/features/ponto/jornada'
 import type { Worker } from '@/types'
@@ -56,6 +59,10 @@ export function RelatoriosDoPontoPanel({ jornadas, workers, de, ate, obraLabel }
   const profile = useAuth((s) => s.profile)
   const companyName = useCompanySettingsStore((s) => s.companyName)
   const isDemo = useAppModeStore((s) => s.isDemoMode)
+  const registros = usePontoStore(useShallow((s) => s.registros))
+  const { horasExtras, absences } = useMaoDeObraStore(
+    useShallow((s) => ({ horasExtras: s.horasExtras, absences: s.absences })),
+  )
 
   const feriados = useMemo(() => new Set((holidays ?? []).map((h) => h.date)), [holidays])
 
@@ -133,6 +140,42 @@ export function RelatoriosDoPontoPanel({ jornadas, workers, de, ate, obraLabel }
     }
   }
 
+  /**
+   * O pacote do mês — tudo o que a contabilidade pede, num arquivo.
+   *
+   * ⚠️ **Não existe envio automático**, e o botão não promete isso. Não há backend de e-mail no
+   * projeto, e inventar um aqui seria prometer o que quebra na frente do contador. O que dá para
+   * entregar de verdade é baixar tudo de uma vez, com os nomes certos e um LEIA-ME dizendo o
+   * recorte e o que o pacote NÃO é (AFD e AEJ não estão lá).
+   */
+  async function baixarPacote() {
+    setGerando(true); setErro(null)
+    try {
+      const n = await baixarPacoteDoPonto({
+        de, ate,
+        empresa: companyName || 'Empresa',
+        obraLabel,
+        emitidoPor: profile?.full_name ?? profile?.email ?? 'sem identificação',
+        emitidoEm: new Date().toLocaleString('pt-BR'),
+        workers: trabalhadores.map((t) => workers.find((w) => w.id === t.workerId)!).filter(Boolean),
+        jornadas: trabalhadores.flatMap((t) => t.jornadas),
+        registros,
+        // ⚠️ `banco` é opcional no tipo do espelho (nem todo trabalhador tem regime que gere
+        // saldo). Aqui ele sempre existe, mas filtrar é mais honesto que afirmar com `!`: se um dia
+        // a montagem mudar, o CSV fica sem a linha em vez de sair com uma linha inventada.
+        saldos: trabalhadores.flatMap((t) => (t.banco ? [{ workerId: t.workerId, saldo: t.banco }] : [])),
+        horasExtras, ausencias: absences,
+        espelhoHtml: buildEspelhoHtml(montarDados()),
+      }, `ponto-${de.slice(0, 7)}-${(companyName || 'empresa').replace(/[^a-zA-Z0-9]+/g, '-')}`)
+      setErro(null)
+      toast.success(`Pacote baixado com ${n} arquivos.`)
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível montar o pacote.')
+    } finally {
+      setGerando(false)
+    }
+  }
+
   const semGrade = !secoes.grade
 
   return (
@@ -202,6 +245,15 @@ export function RelatoriosDoPontoPanel({ jornadas, workers, de, ate, obraLabel }
             className="flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-2 text-xs text-[#adadad] hover:text-[#f5f5f5] disabled:opacity-50"
           >
             <Sheet size={13} /> Excel (uma linha por jornada)
+          </button>
+
+          {/* ⚠️ O nome é "baixar", não "enviar". Ver o docblock de `baixarPacote`. */}
+          <button
+            type="button" onClick={() => void baixarPacote()} disabled={trabalhadores.length === 0 || gerando}
+            title="Espelho em HTML (imprime em PDF), planilha e cinco CSV — batidas, jornadas, banco de horas, horas extras e faltas — num zip, com um LEIA-ME declarando o recorte"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-2 text-xs text-[#d4d4d4] hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Package size={13} /> Pacote do mês para a contabilidade
           </button>
           {trabalhadores.length === 0 && (
             <span className="self-center text-[11px] text-[#adadad]">
