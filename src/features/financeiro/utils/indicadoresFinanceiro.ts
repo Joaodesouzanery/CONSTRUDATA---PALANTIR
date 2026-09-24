@@ -264,7 +264,9 @@ function topN(e: EntradaIndicadores, id: string, sigla: string, titulo: string, 
 }
 
 export const topCategorias = (e: EntradaIndicadores) => topN(e, 'b1', 'B1', 'top 5 categorias por gasto',
-  (x) => [rotuloDaCategoria(x.categoria)], 'Onde o dinheiro está indo. Se Frota é 90% do mês, isto mostra sem abrir o DRE linha a linha.')
+  // A palavra do cliente antes do enum: "Frota" e "Combustível" são dois motivos de gasto, e
+  // ambos caem em `equipamentos`. Somados, o indicador deixa de apontar para onde ir.
+  (x) => [x.classificacao || rotuloDaCategoria(x.categoria)], 'Onde o dinheiro está indo. Se Frota é 90% do mês, isto mostra sem abrir o DRE linha a linha.')
 export const topSolicitantes = (e: EntradaIndicadores) => topN(e, 'b2', 'B2', 'top 5 solicitantes por valor',
   (x) => (x.solicitantes?.length ? x.solicitantes : ['Sem solicitante']), 'Quem está autorizando mais gasto — útil para saber quem revisar primeiro na Conferência.',
   'lançamento com dois solicitantes conta nos dois')

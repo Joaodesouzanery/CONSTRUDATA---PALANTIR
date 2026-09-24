@@ -27,7 +27,8 @@ import { fmtDataBR, hojeLocalISO } from '@/lib/utils'
 import { Autoria } from '@/components/shared/Autoria'
 import { ImportarCaixaModal } from './ImportarCaixaModal'
 import { baixarPlanilhaModelo, rotuloDaCategoria, CATEGORIAS_DA_PLANILHA } from '../utils/controleDeCaixaModelo'
-import type { EntradaCategoria, FinanceiroEntry, SaidaCategoria } from '@/types'
+import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
+import type { EntradaCategoria, FinanceiroEntry, HoraExtra, SaidaCategoria } from '@/types'
 import { ehDoCaixa, agruparCaixa, type GrupoCaixa } from '../utils/caixaAgrupar'
 import { registrarImportacao } from '../utils/importacoes'
 
@@ -53,6 +54,9 @@ export function ControleDeCaixaPanel() {
   const perfilImporta = useAuth((s) => s.profile)
   const quemImporta = perfilImporta?.full_name ?? perfilImporta?.email ?? 'alguém'
   const workers = useMaoDeObraStore((s) => s.workers)
+  const upsertHoraExtra = useMaoDeObraStore((s) => s.upsertHoraExtra)
+  // ⚠️ O mesmo predicado que a RLS aplica: a tela diz ANTES o que a gravação recusaria depois.
+  const permissaoMaoDeObra = usePermissaoEscrita(ROLES_MAO_DE_OBRA_WRITE)
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const profile = useAuth((s) => s.profile)
 
@@ -87,6 +91,17 @@ export function ControleDeCaixaPanel() {
     // "Importado há X dias por Fulano" na Visão Geral. Registra mesmo com zero linha gravada —
     // reimportar um arquivo sem mudança TAMBÉM é "trouxe a planilha".
     void registrarImportacao('caixa', { por: quemImporta, linhas: lancamentos.length })
+  }
+
+  /**
+   * As devoluções de ponto-saída — detalhamento em Mão de Obra, NUNCA despesa nova.
+   *
+   * ⚠️ `upsertHoraExtra` é upsert por id determinístico: reimportar atualiza a mesma linha. E o
+   * `entryId` já vem apontando para o lançamento do caixa que a pessoa confirmou no modal — é isso
+   * que faz o detalhamento aparecer também no Financeiro sem o dinheiro ser contado duas vezes.
+   */
+  function gravarPontoSaida(registros: HoraExtra[]) {
+    for (const he of registros) upsertHoraExtra(he)
   }
 
   return (
@@ -142,6 +157,8 @@ export function ControleDeCaixaPanel() {
           obraId={activeObraId ?? undefined}
           sites={sites}
           onGravar={gravarImportados}
+          onGravarPontoSaida={gravarPontoSaida}
+          podeEscreverMaoDeObra={permissaoMaoDeObra.pode}
           onClose={() => setImportando(false)}
         />
       )}
@@ -245,7 +262,9 @@ function LancamentosSub({
                   <td className={`px-3 py-2 text-right tabular-nums ${e.tipo === 'entrada' ? 'text-emerald-300' : 'text-[#f5f5f5]'}`}>
                     {e.tipo === 'entrada' ? '+' : '−'} {fmtBRL(e.valor)}
                   </td>
-                  <td className="px-3 py-2 text-[#a3a3a3]">{rotuloDaCategoria(e.categoria)}</td>
+                  {/* A palavra do cliente quando ela existe. Ver "Outro" numa linha que a planilha
+                      chama de FOLHA PAGAMENTO é o que fazia a tabela não responder nada. */}
+                  <td className="px-3 py-2 text-[#a3a3a3]">{e.classificacao || rotuloDaCategoria(e.categoria)}</td>
                   <td className="px-3 py-2 text-[#a3a3a3]">
                     {(e.solicitantes ?? []).join(' + ') || e.funcionarioNome || '—'}
                   </td>
@@ -656,7 +675,9 @@ function RelatoriosSub({ doCaixa, sites }: { doCaixa: FinanceiroEntry[]; sites: 
   const agrupar = (chave: (e: FinanceiroEntry) => string[]) =>
     agruparCaixa(noPeriodo, chave).map((g) => [g.chave, g] as [string, GrupoCaixa])
 
-  const porCategoria = agrupar((e) => [rotuloDaCategoria(e.categoria)])
+  // ⚠️ Agrupa pela CLASSIFICAÇÃO escrita na planilha, não pelo enum de 6 valores. Medido no
+  // arquivo real: agrupando pelo enum, a tabela dizia "Outro: 89%" — 194 de 219 despesas.
+  const porCategoria = agrupar((e) => [e.classificacao || rotuloDaCategoria(e.categoria)])
   const porObra = agrupar((e) => [sites.find((s) => s.id === e.obraId)?.name ?? 'Sem obra'])
   // ⚠️ Um lançamento com dois solicitantes entra nos DOIS — o gasto foi pedido pelos dois. Por
   // isso a soma desta tabela pode passar do total do período, e a tela diz isso.
@@ -672,7 +693,7 @@ function RelatoriosSub({ doCaixa, sites }: { doCaixa: FinanceiroEntry[]; sites: 
         <span className="ml-auto text-xs text-[#a3a3a3]">{noPeriodo.length} lançamento(s)</span>
       </div>
 
-      <Tabela titulo="Por categoria" linhas={porCategoria} />
+      <Tabela titulo="Por classificação" linhas={porCategoria} />
       <Tabela titulo="Por obra" linhas={porObra} />
       <Tabela
         titulo="Por solicitante"

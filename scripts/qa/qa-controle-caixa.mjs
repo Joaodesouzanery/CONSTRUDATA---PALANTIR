@@ -7,7 +7,14 @@
  *   node --import ./scripts/testes/resolver-ts.mjs scripts/qa/qa-controle-caixa.mjs
  */
 import xlsx from 'xlsx'
-import { lerLancamentos, lerHorasExtras, conferirTotaisDeHorasExtras, mesDoNomeDaAba } from '../../src/features/financeiro/utils/controleDeCaixaPlanilha.ts'
+import {
+  lerLancamentos, lerHorasExtras, conferirTotaisDeHorasExtras, mesDoNomeDaAba,
+  mesEAnoDoNomeDaAba, separarProblemas,
+} from '../../src/features/financeiro/utils/controleDeCaixaPlanilha.ts'
+import { lerCategoria } from '../../src/features/financeiro/utils/controleDeCaixaImport.ts'
+import {
+  lerPontoSaida, candidatosAoVinculo, lerListaDeClassificacoes,
+} from '../../src/features/financeiro/utils/controleDeCaixaPontoSaida.ts'
 
 const XLSX = xlsx.default ?? xlsx
 
@@ -119,6 +126,92 @@ conferir([...porCargo.values()].some((s) => s.size > 1), 'a planilha CONFIRMA qu
 conferir(he.registros.some((r) => !r.cargo), 'existe registro com valor e SEM cargo (ÉVERTON)')
 conferir(new Set(he.registros.map((r) => r.chave)).size === he.registros.length, 'nenhuma chave de HE colide')
 conferir(he.registros.every((r) => r.pago), 'todos os lançamentos estão marcados PG, como no arquivo')
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// O ARQUIVO REAL DO CLIENTE
+//
+// ⚠️ O bloco acima roda contra o MODELO — o arquivo que o próprio sistema gera, e por isso
+// perfeitamente comportado. Ele nunca teria pego nada do que esta investigação achou: nem a
+// aba "AGOSTO" sem dígito, nem o cabeçalho "DIA 01", nem as 13 classificações, nem a linha de
+// total sem rótulo. Os números abaixo foram MEDIDOS e ficam travados aqui.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const REAL = 'docs/CONTROLE DE CAIXA ATUAL (2).xlsx'
+console.log(`\n=== ${REAL} ===`)
+
+const wbR = XLSX.readFile(REAL, { cellDates: true })
+conferir(
+  JSON.stringify(wbR.SheetNames) === JSON.stringify(['DESPESAS', 'AUSÊNCIA PONTO SAÍDA', 'HORAS EXTRAS AGOSTO', 'Planilha1']),
+  'as 4 abas do arquivo', JSON.stringify(wbR.SheetNames),
+)
+
+// ── DESPESAS ──
+const mR = XLSX.utils.sheet_to_json(wbR.Sheets['DESPESAS'], { header: 1, raw: true, defval: null })
+const rR = lerLancamentos(mR)
+const recR = rR.lancamentos.filter((l) => l.tipo === 'receita')
+const desR = rR.lancamentos.filter((l) => l.tipo === 'despesa')
+const soma = (xs) => xs.reduce((a, l) => a + l.valor, 0)
+
+conferir(rR.lancamentos.length === 237, '237 lançamentos', String(rR.lancamentos.length))
+conferir(recR.length === 18, '18 receitas — as que o cliente achou que tinham sido descartadas', String(recR.length))
+conferir(desR.length === 219, '219 despesas', String(desR.length))
+conferir(Math.abs(soma(recR) - 112050) < 0.01, 'receitas somam R$ 112.050,00 — igual ao rodapé', soma(recR).toFixed(2))
+conferir(Math.abs(soma(desR) - 112296.06) < 0.01, 'despesas somam R$ 112.296,06 — igual ao rodapé', soma(desR).toFixed(2))
+conferir(Math.abs(rR.totaisDeclarados.receitas - soma(recR)) < 0.01, 'a planilha e o sistema chegam sozinhos ao mesmo total de receita')
+conferir(Math.abs(rR.totaisDeclarados.despesas - soma(desR)) < 0.01, 'idem despesa')
+
+// 🔴 O defeito que quase abortou a importação: ressalva apresentada como rejeição.
+const { avisos, recusas } = separarProblemas(rR.problemas)
+conferir(recusas.length === 0, 'NENHUMA linha ficou de fora', `recusas=${recusas.length}`)
+conferir(avisos.length === 18, '18 ressalvas — e elas ENTRARAM', String(avisos.length))
+
+// 🔴 A classificação: 194 de 219 caíam em `outro`.
+const emOutro = desR.filter((l) => lerCategoria(l.categoria, 'saida') === 'outro')
+conferir(emOutro.length <= 32, 'no máximo 32 despesas sem categoria da DRE (eram 194)', String(emOutro.length))
+conferir(desR.every((l) => !l.categoria || String(l.categoria).trim().length > 0), 'a palavra do cliente nunca vem vazia quando existe')
+
+// ── HORAS EXTRAS AGOSTO ──
+const nomeHE = 'HORAS EXTRAS AGOSTO'
+const mesAno = mesEAnoDoNomeDaAba(nomeHE)
+conferir(mesAno?.mes === 8, 'o mês sai de "AGOSTO" — antes a aba inteira não era lida', JSON.stringify(mesAno))
+const heR = lerHorasExtras(
+  XLSX.utils.sheet_to_json(wbR.Sheets[nomeHE], { header: 1, raw: true, defval: null }),
+  { mes: 8, ano: 2026, nomeDaAba: nomeHE },
+)
+conferir(heR.registros.length === 72, '72 células com hora extra', String(heR.registros.length))
+conferir(new Set(heR.registros.map((x) => x.nome)).size === 30, '30 pessoas com lançamento', String(new Set(heR.registros.map((x) => x.nome)).size))
+conferir(Math.abs(heR.registros.reduce((a, x) => a + x.valor, 0) - 20300) < 0.01, 'R$ 20.300,00 na grade', String(heR.registros.reduce((a, x) => a + x.valor, 0)))
+conferir(conferirTotaisDeHorasExtras(heR).length === 0, 'a soma por dia bate com a linha TOTAIS da grade')
+conferir(heR.problemas.length === 0, 'nenhuma célula recusada na grade')
+conferir(JSON.stringify(heR.dias) === JSON.stringify([1, 2, 8, 15, 16, 22, 29, 30]), 'os 8 dias do cabeçalho "DIA nn"', JSON.stringify(heR.dias))
+
+// ── AUSÊNCIA PONTO SAÍDA ──
+const psR = lerPontoSaida(
+  XLSX.utils.sheet_to_json(wbR.Sheets['AUSÊNCIA PONTO SAÍDA'], { header: 1, raw: true, defval: null }),
+  { ano: 2026 },
+)
+conferir(psR.linhas.length === 10, '10 colaboradores', String(psR.linhas.length))
+conferir(!psR.linhas.some((l) => /^\d/.test(l.colaborador)), 'a linha de total sem rótulo NÃO virou colaborador')
+conferir(Math.abs(psR.somaDeclarada - 2065.15) < 0.01, 'declarado R$ 2.065,15', psR.somaDeclarada.toFixed(2))
+conferir(psR.batem === 6, '6 linhas batem ao centavo com o motor do sistema', String(psR.batem))
+conferir(Math.abs((psR.somaRecalculada - psR.somaDeclarada) - 13.95) < 0.02, 'a divergência é R$ 13,95', (psR.somaRecalculada - psR.somaDeclarada).toFixed(2))
+conferir(psR.linhas.some((l) => l.diasTexto === '13 e 20/08'), '"13 e 20/08" virou UM registro com o texto preservado')
+conferir(psR.linhas.every((l) => l.pagoEm === '2026-09-10'), 'a coluna sem cabeçalho "Pago em 10/09" foi lida')
+
+// 🔴 O vínculo: o dinheiro JÁ está no caixa, e é preciso achá-lo, não criá-lo.
+const comoEntry = desR.map((l, i) => ({ id: `e${i}`, tipo: 'saida', valor: l.valor, data: l.data, descricao: l.descricao }))
+const cands = candidatosAoVinculo(comoEntry, psR.totalDeclaradoDaAba, '2026-09-10')
+conferir(cands[0]?.exato === true, 'o lançamento de R$ 2.065,15 já existe na aba DESPESAS', cands[0]?.descricao?.slice(0, 50))
+
+// ── Planilha1 ──
+const lista = lerListaDeClassificacoes(XLSX.utils.sheet_to_json(wbR.Sheets['Planilha1'], { header: 1, raw: true, defval: null }))
+conferir(lista.length === 13, 'as 13 classificações do cliente', String(lista.length))
+
+// 🔴 Reimportar não pode mudar nada.
+conferir(
+  JSON.stringify(lerLancamentos(mR).lancamentos) === JSON.stringify(rR.lancamentos),
+  'ler duas vezes dá exatamente o mesmo resultado',
+)
 
 console.log(falhas === 0 ? '\nTUDO CONFERE.\n' : `\n${falhas} FALHA(S).\n`)
 process.exit(falhas === 0 ? 0 : 1)

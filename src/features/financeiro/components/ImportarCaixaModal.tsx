@@ -18,15 +18,21 @@ import { fmtBRL } from '@/features/financeiro/lib/financeiroCalc'
 import { fmtDataBR } from '@/lib/utils'
 import { useEnvioUnico } from '@/hooks/useEnvioUnico'
 import {
-  lerLancamentos, lerHorasExtras, mesDoNomeDaAba, conferirTotaisDeHorasExtras,
+  lerLancamentos, lerHorasExtras, mesEAnoDoNomeDaAba, conferirTotaisDeHorasExtras,
   abasDeHorasExtras, abaDeLancamentos,
+  separarProblemas,
   type Matriz, type LeituraHorasExtras,
 } from '../utils/controleDeCaixaPlanilha'
 import {
   conferir, lancamentoParaGravar, lancamentoDaHoraExtra, horasExtrasQueViramDespesa, despesaDaHoraExtra,
   linhasAGravar, ROTULO_SITUACAO, type Conferencia, type Situacao, type ObraParaCasar,
 } from '../utils/controleDeCaixaImport'
-import type { FinanceiroEntry } from '@/types'
+import {
+  lerPontoSaida, ehAbaDePontoSaida, horaExtraDoPontoSaida, candidatosAoVinculo,
+  lerListaDeClassificacoes,
+  type LeituraDoPontoSaida,
+} from '../utils/controleDeCaixaPontoSaida'
+import type { FinanceiroEntry, HoraExtra } from '@/types'
 import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const COR_SITUACAO: Record<Situacao, string> = {
@@ -48,6 +54,15 @@ interface Props {
   /** Para resolver a coluna OBRA e para mostrar NOME em vez de UUID no diff. */
   sites: ObraParaCasar[]
   onGravar: (lancamentos: FinanceiroEntry[]) => void
+  /**
+   * As devoluções de ponto-saída lidas da aba própria.
+   *
+   * ⚠️ Elas vão para Mão de Obra como DETALHAMENTO e **não viram despesa nova**: o dinheiro já
+   * está no caixa, numa linha da aba DESPESAS. Por isso o caminho é outro do `onGravar`.
+   */
+  onGravarPontoSaida?: (registros: HoraExtra[]) => void
+  /** `false` esconde o botão e diz na tela por quê — o gate espelha a RLS de Mão de Obra. */
+  podeEscreverMaoDeObra?: boolean
   onClose: () => void
 }
 
@@ -66,9 +81,20 @@ interface Lido {
   ano: number
   /** As colunas que o arquivo trouxe — a gravação precisa saber o que NÃO preencher. */
   colunas: readonly string[]
+  /** A aba de devolução de ponto-saída, quando o arquivo tem uma. */
+  pontoSaida?: { aba: string; leitura: LeituraDoPontoSaida }
+  /**
+   * TODAS as abas do arquivo, lidas ou não.
+   *
+   * ⚠️ O estado nem guardava o NOME da aba que tinha lido. Aba não reconhecida sumia sem deixar
+   * rastro — e "não apareceu na tela" é indistinguível de "não existe no arquivo" para quem olha.
+   */
+  abas: Array<{ nome: string; oQueE: string; encontrados: number | null; observacao?: string }>
 }
 
-export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, onClose }: Props) {
+export function ImportarCaixaModal({
+  entries, orgId, obraId, sites, onGravar, onGravarPontoSaida, podeEscreverMaoDeObra = false, onClose,
+}: Props) {
   const [lido, setLido] = useState<Lido | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [lendo, setLendo] = useState(false)
@@ -125,19 +151,58 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
         : new Date().getFullYear()
 
       for (const aba of abasHE) {
-        const mes = mesDoNomeDaAba(aba)
+        // ⚠️ `mesEAnoDoNomeDaAba`, não `mesDoNomeDaAba`: a aba do cliente chama-se
+        // "HORAS EXTRAS AGOSTO" e a versão que exigia dígito no fim a deixava de fora inteira.
+        // E o ano do NOME vence o ano deduzido dos lançamentos — quem escreveu foi explícito.
+        const doNome = mesEAnoDoNomeDaAba(aba)
+        const mes = doNome?.mes
+        const anoDaAba = doNome?.ano ?? ano
         if (!mes) {
           // ⚠️ Antes isto era um `if (mes)` sem `else`: a aba existia, não era lida, e a tela não
           // dizia nada. Agora a pessoa sabe que precisa pôr o mês no nome.
-          horasExtrasPuladas.push({ aba, motivo: 'não consegui achar o mês no nome da aba (ex.: "HORAS EXTRAS 08")' })
+          horasExtrasPuladas.push({ aba, motivo: 'não consegui achar o mês no nome da aba (ex.: "HORAS EXTRAS 08", "HORAS EXTRAS AGOSTO" ou "HORAS EXTRAS 08/2026")' })
           continue
         }
         const mHE = XLSX.utils.sheet_to_json(wb.Sheets[aba], { header: 1, raw: true, defval: null }) as Matriz
-        horasExtras.push({ aba, leitura: lerHorasExtras(mHE, { mes, ano, nomeDaAba: aba }) })
+        horasExtras.push({ aba, leitura: lerHorasExtras(mHE, { mes, ano: anoDaAba, nomeDaAba: aba }) })
       }
 
+      // ── A aba de devolução de ponto-saída ──
+      const abaPS = wb.SheetNames.find(ehAbaDePontoSaida)
+      const pontoSaida = abaPS
+        ? {
+            aba: abaPS,
+            leitura: lerPontoSaida(
+              XLSX.utils.sheet_to_json(wb.Sheets[abaPS], { header: 1, raw: true, defval: null }) as Matriz,
+              { ano },
+            ),
+          }
+        : undefined
+
+      // ── Uma linha por aba do arquivo, reconhecida ou não ──
+      const classificacoes = new Map<string, string[]>()
+      const abas = wb.SheetNames.map((nome) => {
+        if (nome === nomeLanc) {
+          return { nome, oQueE: 'Lançamentos', encontrados: leitura.lancamentos.length }
+        }
+        const daHE = horasExtras.find((h) => h.aba === nome)
+        if (daHE) return { nome, oQueE: 'Horas extras (grade)', encontrados: daHE.leitura.registros.length }
+        const pulada = horasExtrasPuladas.find((h) => h.aba === nome)
+        if (pulada) return { nome, oQueE: 'Horas extras (grade)', encontrados: null, observacao: pulada.motivo }
+        if (pontoSaida?.aba === nome) {
+          return { nome, oQueE: 'Devolução de ponto', encontrados: pontoSaida.leitura.linhas.length }
+        }
+        const m = XLSX.utils.sheet_to_json(wb.Sheets[nome], { header: 1, raw: true, defval: null }) as Matriz
+        const lista = lerListaDeClassificacoes(m)
+        if (lista.length > 0) {
+          classificacoes.set(nome, lista)
+          return { nome, oQueE: 'Lista de classificações', encontrados: lista.length }
+        }
+        return { nome, oQueE: 'Não reconhecida', encontrados: null, observacao: 'não sei o que ler nesta aba — nada dela entra' }
+      })
+
       setLido({
-        nomeArquivo: file.name, conferencia, horasExtras, horasExtrasPuladas, ano,
+        nomeArquivo: file.name, conferencia, horasExtras, horasExtrasPuladas, ano, pontoSaida, abas,
         abaPorPosicao: escolha.porPosicao, colunas: leitura.colunas,
       })
     } catch (e) {
@@ -146,6 +211,41 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
       setLendo(false)
     }
   }
+
+  /**
+   * Quais grades de horas extras a pessoa autorizou a virar despesa.
+   *
+   * ⚠️ Nasce VAZIO, e é a decisão mais importante desta tela. A aba DESPESAS do arquivo real já
+   * tem 61 linhas `FOLHA PAGAMENTO` e 29 de hora extra somando R$ 31.365,15 — somar a grade em
+   * silêncio duplicaria o mês inteiro sem um único erro aparecer.
+   */
+  const [gradesLigadas, setGradesLigadas] = useState<ReadonlySet<string>>(new Set())
+
+  /**
+   * O lançamento do caixa ao qual a devolução será amarrada.
+   *
+   * `undefined` = ainda não decidiu (a tela propõe); `''` = a pessoa escolheu não vincular. Os
+   * dois estados são diferentes de propósito: "não decidi" pode virar vínculo, "não vincular" não.
+   */
+  const [vinculoPS, setVinculoPS] = useState<string | undefined>(undefined)
+
+  const candidatos = useMemo(() => {
+    const ps = lido?.pontoSaida?.leitura
+    if (!ps || ps.linhas.length === 0) return []
+    return candidatosAoVinculo(entries, ps.totalDeclaradoDaAba ?? ps.somaDeclarada, ps.linhas[0].pagoEm)
+  }, [lido, entries])
+
+  /** O vínculo em vigor: a escolha da pessoa, ou a proposta enquanto ela não escolheu. */
+  const vinculoEmVigor = vinculoPS ?? candidatos[0]?.id
+
+  const pontoSaidaParaGravar = useMemo(() => {
+    const ps = lido?.pontoSaida?.leitura
+    if (!ps || !podeEscreverMaoDeObra) return []
+    const agora = new Date().toISOString()
+    return ps.linhas.map((l) => horaExtraDoPontoSaida(l, {
+      agora, obraId, entryId: vinculoEmVigor || undefined,
+    }))
+  }, [lido, obraId, vinculoEmVigor, podeEscreverMaoDeObra])
 
   const paraGravar = useMemo(() => {
     if (!lido) return []
@@ -163,6 +263,7 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
         return escolhida ? { ...e, obraId: escolhida } : e
       })
     const daGrade = lido.horasExtras
+      .filter(({ aba }) => gradesLigadas.has(aba))
       .flatMap(({ leitura }) => horasExtrasQueViramDespesa(leitura.registros))
       .map((r) => lancamentoDaHoraExtra(r, orgId, { obraId, agora }))
       // Só as que ainda não existem — reprocessar a grade não pode reescrever o que já está lá.
@@ -175,7 +276,7 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
       // (aqui `e.data` É o dia trabalhado — é a planilha que manda nesse caminho)
       .filter((e) => !despesaDaHoraExtra(entries, e.funcionarioNome ?? '', e.data))
     return [...daPlanilha, ...daGrade]
-  }, [lido, orgId, obraId, entries, quemConfere, sites, obraPorLinha])
+  }, [lido, orgId, obraId, entries, quemConfere, sites, obraPorLinha, gradesLigadas])
 
   /** A obra que ESTA linha vai receber se gravada agora. `undefined` = vai entrar sem obra. */
   const obraDaLinha = useMemo(() => {
@@ -249,6 +350,16 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
               obraDaLinha={obraDaLinha}
               obraEscolhida={obraPorLinha}
               semObra={semObra.length}
+              gradesLigadas={gradesLigadas}
+              candidatosAoVinculo={candidatos}
+              vinculoEmVigor={vinculoEmVigor}
+              onEscolherVinculo={setVinculoPS}
+              podeEscreverMaoDeObra={podeEscreverMaoDeObra}
+              onAlternarGrade={(aba) => setGradesLigadas((atual) => {
+                const novo = new Set(atual)
+                if (novo.has(aba)) novo.delete(aba); else novo.add(aba)
+                return novo
+              })}
               onAtribuirEmMassa={atribuirEmMassa}
               onEscolherObra={(idLinha, idObra) => setObraPorLinha((a) => {
                 const novo = new Map(a)
@@ -265,15 +376,27 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
             <button type="button" onClick={() => setLido(null)} className={BTN_SECUNDARIO}>
               Escolher outro arquivo
             </button>
+            {/* ⚠️ "lidas" e "ficaram de fora" andam juntas de propósito: o número que tranquiliza
+                e o número que preocupa na mesma frase, para nenhum dos dois ser presumido. */}
             <span className="text-[11px] text-[#6b6b6b] ml-auto">
+              {lido.conferencia.linhas.length} linha(s) lida(s) ·{' '}
+              {separarProblemas(lido.conferencia.problemas).recusas.length} ficaram de fora ·{' '}
               {paraGravar.length === 0
-                ? 'Nada mudou — não há o que gravar.'
+                ? 'nada mudou, não há o que gravar.'
                 : `${paraGravar.length} lançamento(s) serão gravados.`}
             </span>
             <button
               type="button"
               disabled={paraGravar.length === 0}
-              onClick={() => { if (!travarEnvio()) return; onGravar(paraGravar); onClose() }}
+              onClick={() => {
+                if (!travarEnvio()) return
+                onGravar(paraGravar)
+                // ⚠️ Caminho separado: a devolução NÃO entra em `paraGravar`. Ela é detalhamento
+                // em Mão de Obra amarrado ao lançamento que já está no caixa — criar despesa aqui
+                // duplicaria os R$ 2.065,15 que a aba DESPESAS já traz.
+                if (pontoSaidaParaGravar.length > 0) onGravarPontoSaida?.(pontoSaidaParaGravar)
+                onClose()
+              }}
               className={BTN_PRIMARIO}
             >
               Gravar {paraGravar.length > 0 ? paraGravar.length : ''}
@@ -290,6 +413,8 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
 function Conferido({
   lido, divergenciasHE, mostrarInalterados, onAlternarInalterados, sites,
   obraDaLinha, obraEscolhida, semObra, onAtribuirEmMassa, onEscolherObra,
+  gradesLigadas, onAlternarGrade,
+  candidatosAoVinculo: candidatos, vinculoEmVigor, onEscolherVinculo, podeEscreverMaoDeObra,
 }: {
   lido: Lido
   /** `aba` viaja junto porque agora há uma grade de horas extras por mês. */
@@ -306,6 +431,13 @@ function Conferido({
   semObra: number
   onAtribuirEmMassa: (idObra: string) => void
   onEscolherObra: (idLinha: string, idObra: string) => void
+  /** As grades cuja importação a pessoa autorizou. Vazio = nenhuma vira despesa. */
+  gradesLigadas: ReadonlySet<string>
+  onAlternarGrade: (aba: string) => void
+  candidatosAoVinculo: Array<{ id: string; data: string; descricao: string; valor: number; exato: boolean }>
+  vinculoEmVigor?: string
+  onEscolherVinculo: (id: string | undefined) => void
+  podeEscreverMaoDeObra: boolean
 }) {
   const c = lido.conferencia
   const temHoraExtraNova = lido.horasExtras.length > 0
@@ -315,6 +447,9 @@ function Conferido({
     ativas: sites.filter((o) => o.ativa !== false),
     arquivadas: sites.filter((o) => o.ativa === false),
   }
+  // ⚠️ Dois baldes, nunca um. Ressalva e recusa saíam com o mesmo título ("não foram lidas") e o
+  // cliente concluiu, corretamente a partir do que a tela dizia, que a importação tinha perdido dado.
+  const { avisos: avisosDeLinha, recusas } = separarProblemas(c.problemas)
   const visiveis = mostrarInalterados ? c.linhas : c.linhas.filter((l) => l.situacao !== 'inalterado')
   const nadaMudou = c.resumo.novo === 0 && c.resumo['valor-alterado'] === 0 && c.resumo['cadastro-alterado'] === 0
 
@@ -355,17 +490,57 @@ function Conferido({
         </Aviso>
       )}
 
-      {/* Erros de leitura */}
-      {c.problemas.length > 0 && (
-        <Aviso titulo={`${c.problemas.length} linha(s) não foram lidas`}>
+      {/* ✓ A confirmação de que deu certo — a parte que faltava.
+          ⚠️ Sem ela a tela só sabia reclamar, e uma importação correta ao centavo foi lida como
+          perda de R$ 112.050,00 por causa de um título. */}
+      {c.divergenciaDeTotais.length === 0 && c.totaisConferidos.some((t) => t.bate) && (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+          <p className="flex items-center gap-2 font-medium">
+            <CheckCircle2 size={14} /> A soma das linhas bate com o total escrito na própria planilha.
+          </p>
+          <ul className="mt-1 space-y-0.5 pl-6">
+            {c.totaisConferidos.filter((t) => t.bate).map((t) => (
+              <li key={t.oQue}>
+                {t.oQue}: {t.linhas} linha(s), <strong>{fmtBRL(t.calculado)}</strong> — igual ao rodapé.
+              </li>
+            ))}
+          </ul>
+          {recusas.length === 0 && (
+            <p className="mt-1 pl-6 font-medium">Nenhuma linha ficou de fora.</p>
+          )}
+        </div>
+      )}
+
+      {/* 🔴 Recusa: a linha NÃO entrou. Isto é dado perdido. */}
+      {recusas.length > 0 && (
+        <Aviso titulo={`${recusas.length} linha(s) ficaram de fora e não serão gravadas`}>
           <ul className="space-y-0.5">
-            {c.problemas.slice(0, 12).map((p, i) => (
+            {recusas.slice(0, 12).map((p, i) => (
               <li key={i}>
                 Linha {p.linha}{p.coluna ? ` · ${p.coluna}` : ''}: {p.motivo}
                 {p.conteudo ? ` (“${p.conteudo}”)` : ''}
               </li>
             ))}
-            {c.problemas.length > 12 && <li>+{c.problemas.length - 12} outras</li>}
+            {recusas.length > 12 && <li>+{recusas.length - 12} outras</li>}
+          </ul>
+        </Aviso>
+      )}
+
+      {/* ⚠️ Ressalva: a linha ENTROU e está contada acima. Balde separado de propósito. */}
+      {avisosDeLinha.length > 0 && (
+        <Aviso titulo={`${avisosDeLinha.length} linha(s) entraram com uma ressalva`}>
+          <p className="mb-1">
+            Elas <strong>foram lidas e estão contadas acima</strong>. A ressalva é só para você
+            melhorar a planilha quando puder.
+          </p>
+          <ul className="space-y-0.5">
+            {avisosDeLinha.slice(0, 12).map((p, i) => (
+              <li key={i}>
+                Linha {p.linha}{p.coluna ? ` · ${p.coluna}` : ''}: {p.motivo}
+                {p.conteudo ? ` (“${p.conteudo}”)` : ''}
+              </li>
+            ))}
+            {avisosDeLinha.length > 12 && <li>+{avisosDeLinha.length - 12} outras</li>}
           </ul>
         </Aviso>
       )}
@@ -534,9 +709,28 @@ function Conferido({
               {leitura.registros.length} lançamento(s) na grade;{' '}
               <strong className="text-[#a3a3a3]">
                 {horasExtrasQueViramDespesa(leitura.registros).length} marcados como pagos (PG)
-              </strong>{' '}
-              viram despesa no caixa. Os demais ficam registrados como previstos e não entram no caixa.
+              </strong>. Os demais ficam registrados como previstos e não entram no caixa.
             </p>
+            {/* ⚠️ Caixa de seleção, e DESMARCADA. O valor fica escrito ao lado justamente porque a
+                pessoa precisa poder comparar com o que a aba DESPESAS já traz de folha. */}
+            <label className="flex items-start gap-2 rounded-lg border border-[#525252] bg-[#2b2b2b] px-3 py-2 text-[11px] text-[#d4d4d4] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={gradesLigadas.has(aba)}
+                onChange={() => onAlternarGrade(aba)}
+                className="mt-0.5 accent-[#f97316]"
+              />
+              <span>
+                Importar as horas extras marcadas PG desta aba —{' '}
+                <strong className="text-white">
+                  {fmtBRL(horasExtrasQueViramDespesa(leitura.registros).reduce((a, r) => a + r.valor, 0))}
+                </strong>
+                <span className="block text-[#6b6b6b]">
+                  Deixe desmarcado se estes valores já estiverem lançados na aba de despesas
+                  (folha de pagamento) — marcar os dois duplica o caixa do mês.
+                </span>
+              </span>
+            </label>
             {divergencias.length > 0 && (
               <Aviso titulo="A soma por dia não bate com a linha TOTAIS da grade">
                 {divergencias.map((d) => (
@@ -559,6 +753,116 @@ function Conferido({
           </div>
         )
       })}
+
+      {/* ── A devolução de ponto-saída: detalhamento, vínculo e o confronto ── */}
+      {lido.pontoSaida && lido.pontoSaida.leitura.linhas.length > 0 && (() => {
+        const { aba, leitura: ps } = lido.pontoSaida
+        const divergem = ps.linhas.filter((l) => Math.abs(l.diferenca) > 0.005)
+        const total = ps.totalDeclaradoDaAba ?? ps.somaDeclarada
+        const escolhido = candidatos.find((c) => c.id === vinculoEmVigor)
+        return (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-semibold text-[#a3a3a3]">Devolução de ponto — aba “{aba}”</p>
+            <p className="text-[11px] text-[#6b6b6b]">
+              {ps.linhas.length} colaborador(es), <strong className="text-[#a3a3a3]">{fmtBRL(total)}</strong>.
+              {' '}Isto <strong>não cria despesa nenhuma</strong> — o dinheiro já está no caixa.
+              {' '}Entra em Mão de Obra › Horas Extras como detalhamento e conferência.
+            </p>
+
+            {/* O vínculo com o lançamento que já existe. Proposto, confirmado pela pessoa. */}
+            {candidatos.length > 0 ? (
+              <label className="rounded-lg border border-[#525252] bg-[#2b2b2b] px-3 py-2 text-[11px] text-[#d4d4d4]">
+                <span className="block mb-1">Amarrar este detalhamento ao lançamento do caixa:</span>
+                <select
+                  value={vinculoEmVigor ?? ''}
+                  onChange={(e) => onEscolherVinculo(e.target.value)}
+                  className="w-full rounded border border-[#525252] bg-[#3a3a3a] px-2 py-1 text-[11px] text-[#f5f5f5]"
+                >
+                  <option value="">Não vincular a nenhum lançamento</option>
+                  {candidatos.slice(0, 8).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {fmtDataBR(c.data)} · {fmtBRL(c.valor)} · {c.descricao.slice(0, 60)}
+                      {c.exato ? ' (valor bate ao centavo)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {escolhido?.exato && (
+                  <span className="mt-1 block text-emerald-300">
+                    O valor deste lançamento é exatamente o total da aba.
+                  </span>
+                )}
+              </label>
+            ) : (
+              <p className="text-[11px] text-[#6b6b6b]">
+                Não achei no caixa nenhum lançamento com este valor. O detalhamento entra sem vínculo;
+                dá para amarrar depois, em Mão de Obra.
+              </p>
+            )}
+
+            {/* 🔴 O confronto. A diferença não é ignorada — ela É o produto desta importação. */}
+            {divergem.length > 0 && (
+              <Aviso titulo="A conta do sistema não bate com a da planilha">
+                <p className="mb-1">
+                  {ps.linhas.length} colaborador(es) · <strong>{ps.batem} batem ao centavo</strong> ·{' '}
+                  <strong>{divergem.length} divergem</strong>, {fmtBRL(Math.abs(ps.somaRecalculada - ps.somaDeclarada))} no total.
+                  {' '}Planilha {fmtBRL(ps.somaDeclarada)} × sistema {fmtBRL(ps.somaRecalculada)}.
+                </p>
+                <ul className="space-y-0.5">
+                  {divergem.slice(0, 10).map((l) => (
+                    <li key={l.linha}>
+                      {l.colaborador} · {l.diasTexto || fmtDataBR(l.data)}: planilha {fmtBRL(l.totalDeclarado)},
+                      {' '}sistema {fmtBRL(l.totalRecalculado)} —{' '}
+                      <strong>{l.diferenca > 0 ? '+' : '−'}{fmtBRL(Math.abs(l.diferenca))}</strong>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1">
+                  A conta é <em>salário ÷ 220 × 1,6 × horas extras + salário ÷ 220 × horas descontadas</em>.
+                  {' '}Divergência assim costuma ser célula editada à mão por cima da fórmula.
+                  {' '}<strong>Vale o valor da planilha</strong> — é o que saiu do caixa; o do sistema é conferência.
+                </p>
+              </Aviso>
+            )}
+
+            {/* ⚠️ O gate espelha a RLS: se a gravação vai ser recusada, a tela diz ANTES. */}
+            {!podeEscreverMaoDeObra && (
+              <Aviso titulo="Seu perfil não escreve em Mão de Obra">
+                <p>
+                  As {ps.linhas.length} devoluções <strong>não serão gravadas</strong>. Os lançamentos
+                  do caixa serão, normalmente.
+                </p>
+              </Aviso>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* O resumo por aba. Aba não lida nunca mais é aba invisível. */}
+      <div className="flex flex-col gap-1">
+        <p className="text-xs font-semibold text-[#a3a3a3]">O que há neste arquivo</p>
+        <div className="overflow-x-auto rounded-lg border border-[#525252]">
+          <table className="w-full text-[11px]">
+            <thead className="bg-[#3a3a3a] text-[#a3a3a3]">
+              <tr>
+                <th className="px-3 py-1.5 text-left font-medium">Aba</th>
+                <th className="px-3 py-1.5 text-left font-medium">O que é</th>
+                <th className="px-3 py-1.5 text-right font-medium">Encontrados</th>
+                <th className="px-3 py-1.5 text-left font-medium">Observação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lido.abas.map((a) => (
+                <tr key={a.nome} className={`border-t border-[#525252] ${a.encontrados === null ? 'text-[#6b6b6b]' : 'text-[#d4d4d4]'}`}>
+                  <td className="px-3 py-1.5">{a.nome}</td>
+                  <td className="px-3 py-1.5">{a.oQueE}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{a.encontrados ?? '—'}</td>
+                  <td className="px-3 py-1.5">{a.observacao ?? ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* ⚠️ Aba que existe e NÃO foi lida precisa aparecer. Antes ela sumia calada. */}
       {lido.horasExtrasPuladas.length > 0 && (

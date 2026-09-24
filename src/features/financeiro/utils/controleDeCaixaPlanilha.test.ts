@@ -15,7 +15,7 @@ import {
   acharCabecalho, lerLancamentos, type Matriz,
   lerHorasExtras, mesDoNomeDaAba, diasDaObservacao, conferirTotaisDeHorasExtras,
   abasDeHorasExtras,
-  abaDeLancamentos,
+  abaDeLancamentos, separarProblemas, mesEAnoDoNomeDaAba,
 } from './controleDeCaixaPlanilha'
 
 // O cabeçalho real: linha 1 são rótulos de bloco, linha 2 é o cabeçalho de verdade.
@@ -570,4 +570,74 @@ test('as duas receitas em linhas diferentes com a mesma data ganham chaves disti
   const rec = lerLancamentos(m).lancamentos.filter((l) => l.tipo === 'receita')
   assert.equal(rec.length, 2)
   assert.notEqual(rec[0].chave, rec[1].chave, 'o desempate por ocorrência tem de separá-las')
+})
+
+// ─── 🔴 Ressalva × recusa: a linha entrou, ou ficou de fora? ──────────────────
+
+test('🔴 receita sem descrição própria é RESSALVA — a linha ENTRA e está contada', () => {
+  // Esta é a linha que produziu 18 "problemas" no arquivo real e fez o cliente concluir que
+  // R$ 112.050,00 tinham sido descartados. Eles não foram.
+  const r = lerLancamentos([...CAB, [5000, d('2026-07-06'), 'PNEU DA RETRO', 300, d('2026-07-06'), '', '']])
+  const { avisos, recusas } = separarProblemas(r.problemas)
+  assert.equal(recusas.length, 0, 'nada ficou de fora')
+  assert.equal(avisos.length, 1)
+  assert.match(avisos[0].motivo, /descrição própria/)
+  assert.equal(r.lancamentos.filter((l) => l.tipo === 'receita').length, 1, 'a receita ENTROU')
+  assert.equal(r.lancamentos.find((l) => l.tipo === 'receita')!.valor, 5000)
+})
+
+test('🔴 receita sem data legível é RECUSA — essa sim não entra', () => {
+  const r = lerLancamentos([...CAB, [5000, 'sei lá quando', 'ENTRADA DE OBRA', null, null, '', '']])
+  const { avisos, recusas } = separarProblemas(r.problemas)
+  assert.equal(avisos.length, 0)
+  assert.equal(recusas.length, 1)
+  assert.equal(r.lancamentos.filter((l) => l.tipo === 'receita').length, 0)
+})
+
+test('🔴 toda gravidade é uma das duas — nenhum problema sai sem balde', () => {
+  const r = lerLancamentos([...CAB, [5000, d('2026-07-06'), '', 300, 'ontem', '', '']])
+  assert.ok(r.problemas.length > 0)
+  for (const p of r.problemas) {
+    assert.ok(p.gravidade === 'aviso' || p.gravidade === 'recusa', `sem gravidade: ${p.motivo}`)
+  }
+  const { avisos, recusas } = separarProblemas(r.problemas)
+  assert.equal(avisos.length + recusas.length, r.problemas.length, 'nenhum problema se perde')
+})
+
+// ─── 🔴 A grade do arquivo real: "DIA 01" e uma coluna PG por grupo ───────────
+
+test('🔴 o mês vem do nome por extenso — "AGOSTO" fazia a aba inteira não ser lida', () => {
+  assert.equal(mesEAnoDoNomeDaAba('HORAS EXTRAS AGOSTO')!.mes, 8)
+  assert.deepEqual(mesEAnoDoNomeDaAba('HORAS EXTRAS MARÇO 2026'), { mes: 3, ano: 2026 })
+  assert.equal(mesEAnoDoNomeDaAba('HE AGO')!.mes, 8)
+  // "08/2026" caía no `\d{1,2}$`, que lia o "26" e o rejeitava como mês 26.
+  assert.deepEqual(mesEAnoDoNomeDaAba('HORAS EXTRAS 08/2026'), { mes: 8, ano: 2026 })
+  assert.equal(mesEAnoDoNomeDaAba('HORAS EXTRAS 08')!.mes, 8)
+  // ⚠️ Ano sozinho NÃO vira mês: adivinhar poria a folha inteira no mês errado, em silêncio.
+  assert.equal(mesEAnoDoNomeDaAba('HORAS EXTRAS 2026'), undefined)
+})
+
+// O cabeçalho REAL do cliente: `DIA nn`, e uma coluna PG fechando cada grupo de dias.
+const GRADE_REAL: Matriz = [
+  ['NOME', 'CARGO', 'DIA 01', 'DIA 02', 'PG', 'DIA 08', 'PG 01/09', 'DIA 15'],
+  ['ALMIR', 'AJUDANTE GERAL I', 300, 300, 'PG', 250, null, 150],
+  ['ALINE', 'AUXILIAR II', null, null, null, 200, 'PG', null],
+]
+
+test('🔴 "DIA 01" é coluna de dia — Number("DIA 01") é NaN e nenhuma coluna era reconhecida', () => {
+  const r = lerHorasExtras(GRADE_REAL, { mes: 8, ano: 2026, nomeDaAba: 'HORAS EXTRAS AGOSTO' })
+  assert.deepEqual(r.dias, [1, 2, 8, 15])
+  assert.equal(r.registros.length, 5, 'quatro dias do ALMIR mais o dia 08 da ALINE')
+  assert.equal(r.problemas.length, 0)
+})
+
+test('🔴 cada PG vale só para o SEU grupo de dias', () => {
+  const r = lerHorasExtras(GRADE_REAL, { mes: 8, ano: 2026 })
+  const pg = (nome: string, dia: number) => r.registros.find((x) => x.nome === nome && x.dia === dia)!
+  assert.equal(pg('ALMIR', 1).pago, true, 'a PG da coluna E fecha os dias 01 e 02')
+  assert.equal(pg('ALMIR', 2).pago, true)
+  assert.equal(pg('ALMIR', 8).pago, false, 'a PG do dia 08 está vazia para o ALMIR')
+  assert.equal(pg('ALMIR', 15).pago, false, 'o dia 15 não tem coluna de pagamento nenhuma')
+  assert.equal(pg('ALINE', 8).pago, true)
+  assert.equal(pg('ALINE', 8).pagoEm, '2026-09-01', '"PG 01/09" também diz QUANDO saiu')
 })

@@ -16,6 +16,7 @@
 import * as XLSX from 'xlsx'
 import { fmtDataBR } from '@/lib/utils'
 import type { FinanceiroEntry } from '@/types'
+import { rotuloDaCategoria } from './controleDeCaixaImport'
 
 /** A ordem das colunas do modelo. Mudar aqui muda o que o leitor reconhece — leia o cabeçalho. */
 export const COLUNAS_LANCAMENTOS = [
@@ -35,15 +36,9 @@ export const CATEGORIAS_DA_PLANILHA = {
   saida: ['materiais', 'mao_de_obra', 'equipamentos', 'subempreiteiros', 'administrativo', 'outro'],
 } as const
 
-const ROTULO_CATEGORIA: Record<string, string> = {
-  medicao: 'Medição', adiantamento: 'Adiantamento', reajuste: 'Reajuste',
-  materiais: 'Materiais', mao_de_obra: 'Mão de obra', equipamentos: 'Equipamentos',
-  subempreiteiros: 'Subempreiteiros', administrativo: 'Administrativo', outro: 'Outro',
-}
-
-export function rotuloDaCategoria(c: string | undefined): string {
-  return c ? ROTULO_CATEGORIA[c] ?? c : ''
-}
+// ⚠️ `rotuloDaCategoria` mora em `controleDeCaixaImport` e é reexportado daqui: a conferência
+// precisa dele para a ida-e-volta, e ela não pode importar este arquivo (que carrega o `xlsx`).
+export { rotuloDaCategoria } from './controleDeCaixaImport'
 
 type Linha = (string | number)[]
 
@@ -100,7 +95,9 @@ function linhaDaEntry(e: FinanceiroEntry, nomeDaObra: (id?: string) => string): 
     ehEntrada ? '' : e.valor,
     ehEntrada ? '' : (e.dataFim ? `${fmtDataBR(e.data).slice(0, 2)} A ${fmtDataBR(e.dataFim)}` : fmtDataBR(e.data)),
     (e.solicitantes ?? []).join('/'),
-    rotuloDaCategoria(e.categoria),
+    // ⚠️ A palavra do cliente primeiro. Exportar só o rótulo do enum faria baixar-e-reimportar
+    // apagar a classificação de toda a planilha — o oposto do objetivo.
+    e.classificacao || rotuloDaCategoria(e.categoria),
     nomeDaObra(e.obraId),
     e.conferido ? 'Conferido' : '',
     e.fornecedor ?? '',

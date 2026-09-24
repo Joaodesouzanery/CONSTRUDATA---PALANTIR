@@ -286,6 +286,29 @@ test('quando a soma bate, não há divergência a mostrar', () => {
   assert.deepEqual(c.divergenciaDeTotais, [])
 })
 
+test('🔴 quando bate, a conferência DIZ que bateu — silêncio foi lido como dado perdido', () => {
+  // `divergenciaDeTotais` só existe quando algo dá errado. Sem um lugar que afirme o acerto, a
+  // tela nunca teve como responder "posso confiar?" — e o cliente respondeu sozinho que não.
+  const c = importar([...CAB,
+    [500, d('2026-07-06'), 'MEDIÇÃO', 1000, d('2026-07-09'), 'JAILTON', 'Conferido'],
+    [500, 'SALDO==>>', null, 1000, 'SALDO==>>', -500, null],
+  ])
+  const despesas = c.totaisConferidos.find((t) => t.oQue === 'Despesas')!
+  assert.deepEqual(
+    { linhas: despesas.linhas, calculado: despesas.calculado, declarado: despesas.declarado, bate: despesas.bate },
+    { linhas: 1, calculado: 1000, declarado: 1000, bate: true },
+  )
+  assert.equal(c.totaisConferidos.find((t) => t.oQue === 'Receitas')!.bate, true)
+})
+
+test('planilha sem linha de total: a conferência não inventa que bateu', () => {
+  const c = importar([...CAB, [0, null, 'DIESEL', 1000, d('2026-07-09'), 'JAILTON', '']])
+  const despesas = c.totaisConferidos.find((t) => t.oQue === 'Despesas')!
+  assert.equal(despesas.declarado, null)
+  assert.equal(despesas.bate, false, 'sem rodapé não há o que confirmar — e afirmar seria mentira')
+  assert.equal(despesas.calculado, 1000)
+})
+
 // ─── Horas extras ─────────────────────────────────────────────────────────────
 
 const HE: Matriz = [
@@ -466,8 +489,64 @@ test('obra arquivada casa, mas a ativa com o mesmo nome tem precedência', () =>
 
 test('camposNaoInformados distingue "não disse" de "disse vazio"', () => {
   assert.deepEqual([...camposNaoInformados(['descricao', 'valor'])].sort(),
-    ['categoria', 'conferido', 'fornecedor', 'obraId'])
+    // `classificacao` entra junto: ela vem da MESMA coluna que `categoria`, e sem a coluna a
+    // palavra já gravada tem de sobreviver à reimportação.
+    ['categoria', 'classificacao', 'conferido', 'fornecedor', 'obraId'])
   assert.equal(camposNaoInformados(['categoria', 'obra', 'conferido', 'fornecedor']).size, 0)
   // Sem informação nenhuma, o comportamento antigo: não preserva nada.
   assert.equal(camposNaoInformados(undefined).size, 0)
+})
+
+// ─── 🔴 A classificação do cliente, letra por letra ───────────────────────────
+
+/** A linha mínima, para os testes que montam a conferência sem passar pela planilha. */
+const LINHA_BASE = {
+  tipo: 'despesa' as const, descricao: '', valor: 0, data: '2026-07-09',
+  solicitantes: [], conferido: false, linha: 3, chave: 'k',
+}
+
+test('🔴 a palavra do cliente é guardada crua, e o enum ainda é mapeado', () => {
+  // "FOLHA PAGAMENTO" são 61 linhas do arquivo real. Antes virava `outro` e a palavra sumia.
+  const e = lancamentoDaLinha(
+    { ...LINHA_BASE, descricao: 'PAGAMENTO SEMANA', valor: 1000, categoria: 'FOLHA PAGAMENTO' },
+    ORG, OPC,
+  )
+  assert.equal(e.classificacao, 'FOLHA PAGAMENTO', 'a palavra, letra por letra')
+  assert.equal(e.categoria, 'mao_de_obra', 'e o enum que a DRE sabe somar')
+  assert.equal(lerCategoria('SINISTRO', 'saida'), 'outro', 'sem correspondente honesto, continua outro')
+  assert.equal(
+    lancamentoDaLinha({ ...LINHA_BASE, categoria: 'SINISTRO' }, ORG, OPC).classificacao, 'SINISTRO',
+    'cair em `outro` não pode significar perder a palavra',
+  )
+})
+
+test('🔴 reimportar o modelo não marca 219 linhas como alteradas só pela classificação', () => {
+  // A ida-e-volta: o lançamento digitado na tela não tem `classificacao`; o modelo exporta
+  // "Materiais" na coluna. Comparar `undefined` × `'Materiais'` marcaria tudo como alterado.
+  const existente: FinanceiroEntry = {
+    id: 'x', tipo: 'saida', descricao: 'CIMENTO', valor: 500, data: '2026-07-09',
+    categoria: 'materiais', origem: 'planilha', chavePlanilha: 'x', createdAt: OPC.agora,
+  }
+  const c = conferir(
+    [{ ...LINHA_BASE, idExterno: 'x', descricao: 'CIMENTO', valor: 500, data: '2026-07-09', categoria: 'Materiais' }],
+    [existente], [], ORG, { ...OPC, colunas: ['descricao', 'valor', 'categoria'] },
+  )
+  assert.equal(c.linhas[0].situacao, 'inalterado', c.linhas[0].mudancas.map((m) => m.rotulo).join(', '))
+})
+
+test('🔴 planilha SEM a coluna de classificação não apaga a palavra já gravada', () => {
+  const existente: FinanceiroEntry = {
+    id: 'x', tipo: 'saida', descricao: 'DIESEL', valor: 500, data: '2026-07-09',
+    categoria: 'equipamentos', classificacao: 'COMBUSTÍVEL',
+    origem: 'planilha', chavePlanilha: 'x', createdAt: OPC.agora,
+  }
+  const c = conferir(
+    [{ ...LINHA_BASE, idExterno: 'x', descricao: 'DIESEL', valor: 500, data: '2026-07-09' }],
+    [existente], [], ORG, { ...OPC, colunas: ['descricao', 'valor'] },
+  )
+  assert.equal(c.linhas[0].situacao, 'inalterado')
+  assert.equal(
+    lancamentoParaGravar(c.linhas[0], ORG, { ...OPC, colunas: ['descricao', 'valor'] }).classificacao, 'COMBUSTÍVEL',
+    'é letra por letra o defeito que apagou obraId em produção',
+  )
 })

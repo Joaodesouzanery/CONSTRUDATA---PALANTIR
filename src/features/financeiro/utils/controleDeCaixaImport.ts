@@ -58,6 +58,21 @@ export interface Conferencia {
   /** A soma do sistema contra a que a planilha declara no rodapé. */
   divergenciaDeTotais: Array<{ oQue: string; calculado: number; declarado: number }>
   /**
+   * A conferência COMPLETA dos totais — inclusive quando ela fecha.
+   *
+   * ⚠️ `divergenciaDeTotais` só existe quando algo está errado, e por isso a tela nunca teve como
+   * dizer "deu certo". Foi essa ausência que fez o cliente concluir que a importação tinha
+   * descartado R$ 112.050,00 quando ela estava correta ao centavo. Aqui vem sempre — bata ou não.
+   */
+  totaisConferidos: Array<{
+    oQue: string
+    linhas: number
+    calculado: number
+    /** `null` quando a planilha não traz linha de total para conferir contra. */
+    declarado: number | null
+    bate: boolean
+  }>
+  /**
    * O que a pessoa precisa saber e que não é erro de linha.
    *
    * Hoje: texto na coluna OBRA que não casa com obra cadastrada. Não bloqueia a importação e não
@@ -82,6 +97,7 @@ const CAMPOS_DE_CADASTRO: Array<[keyof FinanceiroEntry, string]> = [
   ['data', 'Data'],
   ['dataFim', 'Fim do período'],
   ['categoria', 'Categoria'],
+  ['classificacao', 'Classificação'],
   ['obraId', 'Obra'],
   ['conferido', 'Conferido'],
   ['fornecedor', 'Fornecedor'],
@@ -103,6 +119,9 @@ const CAMPOS_DE_CADASTRO: Array<[keyof FinanceiroEntry, string]> = [
  */
 const COLUNA_DO_CAMPO: Partial<Record<keyof FinanceiroEntry, string>> = {
   categoria:  'categoria',
+  // ⚠️ Mesma coluna, e por isso mesmo precisa estar aqui: planilha SEM a coluna CLASSIFICAÇÃO não
+  // pode apagar a palavra já gravada. É letra por letra o defeito que apagou `obraId` em produção.
+  classificacao: 'categoria',
   obraId:     'obra',
   conferido:  'conferido',
   fornecedor: 'fornecedor',
@@ -163,6 +182,17 @@ const CATEGORIAS_VALIDAS = new Set<string>([
   'materiais', 'mao_de_obra', 'equipamentos', 'subempreiteiros', 'administrativo',
 ])
 
+const ROTULO_CATEGORIA: Record<string, string> = {
+  medicao: 'Medição', adiantamento: 'Adiantamento', reajuste: 'Reajuste',
+  materiais: 'Materiais', mao_de_obra: 'Mão de obra', equipamentos: 'Equipamentos',
+  subempreiteiros: 'Subempreiteiros', administrativo: 'Administrativo', outro: 'Outro',
+}
+
+/** O nome do enum em português — é o que o modelo escreve na coluna CLASSIFICAÇÃO. */
+export function rotuloDaCategoria(c: string | undefined): string {
+  return c ? ROTULO_CATEGORIA[c] ?? c : ''
+}
+
 /** Aceita a categoria escrita na planilha em várias grafias; o que não reconhece vira "outro". */
 export function lerCategoria(bruta: string | undefined, tipo: 'entrada' | 'saida'): EntradaCategoria | SaidaCategoria {
   if (!bruta) return tipo === 'entrada' ? CATEGORIA_PADRAO.entrada : CATEGORIA_PADRAO.saida
@@ -176,6 +206,15 @@ export function lerCategoria(bruta: string | undefined, tipo: 'entrada' | 'saida
     subempreiteiro: 'subempreiteiros', subempreiteiros: 'subempreiteiros',
     administrativo: 'administrativo', administracao: 'administrativo',
     outro: 'outro', outros: 'outro',
+    // ── As palavras do arquivo real do cliente ──
+    // ⚠️ Medido: sem estas 12 linhas, 194 das 219 despesas caíam em `outro`. Com elas, 29.
+    // O que NÃO tem correspondente honesto entre as 6 categorias continua em `outro` de
+    // propósito — e a palavra original fica guardada em `classificacao`.
+    folha_pagamento: 'mao_de_obra', folha_de_pagamento: 'mao_de_obra',
+    transporte_equipe: 'mao_de_obra', alimentacao: 'mao_de_obra',
+    material_obras: 'materiais', material_obra: 'materiais', mat_obras: 'materiais',
+    frota: 'equipamentos', combustivel: 'equipamentos', locacao: 'equipamentos',
+    mat_escritorio: 'administrativo', material_escritorio: 'administrativo',
   }
   const alvo = apelidos[n] ?? n
   if (!CATEGORIAS_VALIDAS.has(alvo)) return tipo === 'entrada' ? CATEGORIA_PADRAO.entrada : CATEGORIA_PADRAO.saida
@@ -213,6 +252,9 @@ export function lancamentoDaLinha(
     data: l.data,
     dataFim: l.dataFim,
     categoria: lerCategoria(l.categoria, l.tipo === 'receita' ? 'entrada' : 'saida'),
+    // A palavra do cliente, crua. ⚠️ Nunca derivada de `categoria`: o caminho é só de ida, e
+    // reconstruir a partir do enum devolveria "Outro" para 194 linhas.
+    classificacao: l.categoria?.trim() || undefined,
     obraId: acharObra(l.obra, opcoes.obras ?? []) ?? opcoes.obraId,
     fornecedor: l.fornecedor,
     solicitantes: l.solicitantes.length > 0 ? l.solicitantes : undefined,
@@ -295,8 +337,14 @@ export function conferir(
     for (const [campo, rotulo] of CAMPOS_DE_CADASTRO) {
       // A planilha não trouxe a coluna: não há mudança a propor, e o valor atual fica de pé.
       if (naoInformados.has(campo)) continue
-      if (comparavel(existente[campo]) !== comparavel(novo[campo])) {
-        mudancas.push({ campo, rotulo, antes: existente[campo], depois: novo[campo] })
+      // ⚠️ A ida-e-volta do modelo: um lançamento digitado na tela não tem `classificacao`, e o
+      // modelo exporta o RÓTULO do enum na coluna. Comparar direto (`undefined` × `'Medição'`)
+      // marcaria as 219 linhas como alteradas sem nada ter mudado.
+      const antes = campo === 'classificacao' && existente.classificacao === undefined
+        ? rotuloDaCategoria(existente.categoria)
+        : existente[campo]
+      if (comparavel(antes) !== comparavel(novo[campo])) {
+        mudancas.push({ campo, rotulo, antes, depois: novo[campo] })
       }
     }
     if (comparavel(existente.solicitantes) !== comparavel(novo.solicitantes)) {
@@ -332,16 +380,18 @@ export function conferir(
 
   // ── Confere a soma contra o rodapé da própria planilha ──
   const divergenciaDeTotais: Conferencia['divergenciaDeTotais'] = []
+  const totaisConferidos: Conferencia['totaisConferidos'] = []
   const t = opcoes.totaisDeclarados
-  if (t) {
-    const soma = (tipo: 'receita' | 'despesa') =>
-      lidas.filter((l) => l.tipo === tipo).reduce((a, l) => a + l.valor, 0)
-    if (t.receitas !== undefined && Math.abs(soma('receita') - t.receitas) > 0.01) {
-      divergenciaDeTotais.push({ oQue: 'Receitas', calculado: soma('receita'), declarado: t.receitas })
-    }
-    if (t.despesas !== undefined && Math.abs(soma('despesa') - t.despesas) > 0.01) {
-      divergenciaDeTotais.push({ oQue: 'Despesas', calculado: soma('despesa'), declarado: t.despesas })
-    }
+  for (const [oQue, tipo, declaradoBruto] of [
+    ['Receitas', 'receita', t?.receitas],
+    ['Despesas', 'despesa', t?.despesas],
+  ] as const) {
+    const doTipo = lidas.filter((l) => l.tipo === tipo)
+    const calculado = doTipo.reduce((a, l) => a + l.valor, 0)
+    const declarado = declaradoBruto === undefined ? null : declaradoBruto
+    const bate = declarado !== null && Math.abs(calculado - declarado) <= 0.01
+    totaisConferidos.push({ oQue, linhas: doTipo.length, calculado, declarado, bate })
+    if (declarado !== null && !bate) divergenciaDeTotais.push({ oQue, calculado, declarado })
   }
 
   const resumo: Record<Situacao, number> = {
@@ -350,6 +400,38 @@ export function conferir(
   for (const l of linhas) resumo[l.situacao]++
 
   const avisos: string[] = []
+  // ⚠️ Espelha o aviso da coluna OBRA: a classificação que não tem correspondente entre as 6
+  // categorias da DRE cai em "Outro" LÁ, e isso precisa ser dito — antes, era silêncio puro.
+  const semCorrespondente = new Map<string, number>()
+  for (const l of lidas) {
+    const palavra = l.categoria?.trim()
+    if (!palavra || l.tipo !== 'despesa') continue
+    if (lerCategoria(palavra, 'saida') !== 'outro') continue
+    if (normalizarTexto(palavra).startsWith('OUTRO')) continue   // "OUTROS" cai em outro, e está certo
+    semCorrespondente.set(palavra, (semCorrespondente.get(palavra) ?? 0) + 1)
+  }
+  for (const [palavra, quantas] of semCorrespondente) {
+    avisos.push(
+      `"${palavra}" aparece em ${quantas} ${quantas === 1 ? 'linha' : 'linhas'} e não tem `
+      + 'correspondente nas 6 categorias da DRE — lá entram como Outro. Nos relatórios do '
+      + 'Controle de Caixa continuam aparecendo como ' + `"${palavra}".`,
+    )
+  }
+
+  // ⚠️ O segundo susto do mesmo cliente, evitado: a primeira reimportação marca muita linha como
+  // alterada só para guardar a classificação. NENHUM valor muda, e a tela tem de dizer isso.
+  const soPelaPalavra = linhas.filter((l) =>
+    l.situacao === 'cadastro-alterado'
+    && l.mudancas.every((m) => m.campo === 'classificacao' || m.campo === 'categoria'),
+  ).length
+  if (soPelaPalavra > 0) {
+    avisos.push(
+      `${soPelaPalavra} lançamento(s) aparecem como "cadastro alterado" apenas porque o sistema `
+      + 'passou a guardar a classificação escrita na planilha. **Nenhum valor muda** — é só a '
+      + 'palavra entrando no lugar de "Outro".',
+    )
+  }
+
   for (const [texto, quantas] of obrasNaoCasadas) {
     avisos.push(
       `A coluna OBRA diz "${texto}" em ${quantas} ${quantas === 1 ? 'linha' : 'linhas'}, e não existe `
@@ -358,7 +440,7 @@ export function conferir(
     )
   }
 
-  return { linhas, ausentes, problemas, resumo, periodo, divergenciaDeTotais, avisos }
+  return { linhas, ausentes, problemas, resumo, periodo, divergenciaDeTotais, totaisConferidos, avisos }
 }
 
 /**

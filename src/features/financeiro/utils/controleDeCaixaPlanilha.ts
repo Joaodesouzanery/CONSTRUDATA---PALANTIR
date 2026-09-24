@@ -185,12 +185,46 @@ export interface LinhaLida {
   chave: string
 }
 
+/**
+ * A linha ENTROU mesmo assim, ou ficou de fora?
+ *
+ * ⚠️ Esta distinção não existia, e a falta dela quase custou uma importação correta. A tela
+ * imprimia "18 linha(s) não foram lidas" contando TODOS os problemas — mas os 18 do arquivo real
+ * eram avisos: a receita entrava, com a descrição "Entrada", e estava certa. O cliente leu o
+ * título, concluiu que R$ 112.050 tinham sido descartados e escreveu que não clicaria em Gravar.
+ *
+ * Um aviso apresentado como rejeição é pior que nenhum aviso: ensina a desconfiar do que está
+ * certo.
+ */
+export type GravidadeDoProblema =
+  /** A linha ENTROU. É uma ressalva para melhorar a planilha, não um dado perdido. */
+  | 'aviso'
+  /** A linha NÃO entrou. Isto é dado que ficou de fora e precisa de conserto no arquivo. */
+  | 'recusa'
+
 export interface ProblemaNaLinha {
   linha: number
   coluna?: string
   motivo: string
   /** O que estava escrito, para a pessoa achar na planilha dela. */
   conteudo?: string
+  /**
+   * ⚠️ OBRIGATÓRIO de propósito. Opcional com padrão faria o próximo `problemas.push` voltar a
+   * misturar os dois baldes em silêncio; obrigatório faz o `tsc` recusar o build até que quem
+   * escreveu o problema decida se a linha entrou ou não.
+   */
+  gravidade: GravidadeDoProblema
+}
+
+/** Os dois baldes, separados. É o que a tela precisa para não chamar aviso de rejeição. */
+export function separarProblemas(ps: readonly ProblemaNaLinha[]): {
+  avisos: ProblemaNaLinha[]
+  recusas: ProblemaNaLinha[]
+} {
+  return {
+    avisos: ps.filter((p) => p.gravidade === 'aviso'),
+    recusas: ps.filter((p) => p.gravidade === 'recusa'),
+  }
 }
 
 export interface LeituraDeCaixa {
@@ -370,6 +404,7 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
       problemas: [{
         linha: 1,
         motivo: 'Não encontrei o cabeçalho. A planilha precisa ter as colunas DESCRIÇÃO e VALOR, ou ENTRADA.',
+        gravidade: 'recusa',
       }],
       totaisDeclarados: null,
       colunas: [],
@@ -439,6 +474,8 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
           linha: numeroDaLinha, coluna: 'DATA',
           motivo: 'Receita sem data legível — a entrada não entra no fluxo de caixa sem saber quando foi.',
           conteudo: String(celula(linha, 'dataEntrada') ?? ''),
+          // RECUSA: o `else` abaixo não roda, a receita não é criada.
+          gravidade: 'recusa',
         })
       } else {
         const descricaoDaReceita = compartilhadoEhDaDespesa
@@ -452,6 +489,10 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
             motivo: compartilhadoEhDaDespesa
               ? 'Receita sem descrição própria — nesta linha a coluna DESCRIÇÃO é da despesa. Escreva a receita numa linha só dela, ou preencha a descrição.'
               : 'Receita sem descrição — não dá para conferir depois de onde veio o dinheiro.',
+            // ⚠️ AVISO, não recusa: logo abaixo a receita É empurrada, com a descrição "Entrada".
+            // Era este problema que a tela chamava de "linha não lida" — e são os 18 do arquivo
+            // real, R$ 112.050 que o cliente achou que tinha perdido.
+            gravidade: 'aviso',
           })
         }
 
@@ -477,6 +518,8 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
         problemas.push({
           linha: numeroDaLinha, coluna: 'DESCRIÇÃO',
           motivo: 'Despesa sem descrição — não dá para conferir depois o que foi pago.',
+          // Sem descrição a linha não entra: um valor sem nome no caixa não é conferível.
+          gravidade: 'recusa',
         })
       } else {
         let p = lerData(celula(linha, 'dataDespesa'))
@@ -485,7 +528,8 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
           if (bruto) {
             problemas.push({
               linha: numeroDaLinha, coluna: 'DATA DA DESPESA',
-              motivo: 'Data não reconhecida.', conteudo: bruto,
+              // Data ilegível: entrar sem data jogaria a despesa no mês errado.
+              motivo: 'Data não reconhecida.', conteudo: bruto, gravidade: 'recusa',
             })
           } else if (ultimaDataDespesa) {
             // Célula vazia herda a data da linha de cima — é como a planilha é preenchida quando
@@ -495,6 +539,7 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
             problemas.push({
               linha: numeroDaLinha, coluna: 'DATA DA DESPESA',
               motivo: 'Despesa sem data e sem linha anterior de onde herdar.',
+              gravidade: 'recusa',
             })
           }
         }
@@ -510,7 +555,8 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
     } else if (descricao && valorDespesa === null && String(celula(linha, 'valor') ?? '').trim()) {
       problemas.push({
         linha: numeroDaLinha, coluna: 'VALOR',
-        motivo: 'Valor não numérico.', conteudo: String(celula(linha, 'valor') ?? ''),
+        // Sem valor não há lançamento a gravar.
+        motivo: 'Valor não numérico.', conteudo: String(celula(linha, 'valor') ?? ''), gravidade: 'recusa',
       })
     }
   }
@@ -565,6 +611,8 @@ export interface HoraExtraLida {
   data: string
   valor: number
   pago: boolean
+  /** Quando o cabeçalho diz `PG 01/09`, a data em que o dinheiro saiu. ISO. */
+  pagoEm?: string
   linha: number
   chave: string
 }
@@ -608,10 +656,49 @@ export function abaDeLancamentos(nomes: string[]): { aba: string; porPosicao: bo
 }
 
 export function mesDoNomeDaAba(nome: string): number | undefined {
-  const m = /(\d{1,2})\s*$/.exec(normalizarTexto(nome))
-  if (!m) return undefined
-  const n = Number(m[1])
-  return n >= 1 && n <= 12 ? n : undefined
+  return mesEAnoDoNomeDaAba(nome)?.mes
+}
+
+const MESES_POR_EXTENSO: Record<string, number> = {
+  JANEIRO: 1, FEVEREIRO: 2, MARCO: 3, ABRIL: 4, MAIO: 5, JUNHO: 6,
+  JULHO: 7, AGOSTO: 8, SETEMBRO: 9, OUTUBRO: 10, NOVEMBRO: 11, DEZEMBRO: 12,
+  JAN: 1, FEV: 2, MAR: 3, ABR: 4, MAI: 5, JUN: 6, JUL: 7, AGO: 8, SET: 9, OUT: 10, NOV: 11, DEZ: 12,
+}
+
+/**
+ * O mês (e às vezes o ano) que o nome da aba declara.
+ *
+ * ⚠️ O cliente escreve **"HORAS EXTRAS AGOSTO"**, e a versão antiga exigia dígito no fim: a aba
+ * inteira ficava sem mês e a importação da grade não acontecia. `"08/2026"` também falhava — o
+ * `\d{1,2}$` pegava o "26" do ano e o rejeitava como mês 26.
+ *
+ * ⚠️ `"HORAS EXTRAS 2026"` continua devolvendo `undefined` de propósito: adivinhar mês a partir de
+ * um ano colocaria a folha inteira no mês errado, em silêncio.
+ */
+export function mesEAnoDoNomeDaAba(nome: string): { mes: number; ano?: number } | undefined {
+  const t = normalizarTexto(nome)
+
+  // "08/2026" ou "08/26" — o mais específico primeiro, senão o ano seria lido como mês.
+  const comAno = /\b(\d{1,2})\s*[/-]\s*(\d{2}|\d{4})\s*$/.exec(t)
+  if (comAno) {
+    const mes = Number(comAno[1])
+    const bruto = Number(comAno[2])
+    if (mes >= 1 && mes <= 12) return { mes, ano: bruto < 100 ? 2000 + bruto : bruto }
+  }
+
+  for (const [palavra, mes] of Object.entries(MESES_POR_EXTENSO)) {
+    if (new RegExp(`\\b${palavra}\\b`).test(t)) {
+      const ano = /\b(20\d{2})\b/.exec(t)
+      return { mes, ano: ano ? Number(ano[1]) : undefined }
+    }
+  }
+
+  const soDigito = /(\d{1,2})\s*$/.exec(t)
+  if (soDigito) {
+    const n = Number(soDigito[1])
+    if (n >= 1 && n <= 12) return { mes: n }
+  }
+  return undefined
 }
 
 /**
@@ -644,27 +731,59 @@ export function lerHorasExtras(
   const registros: HoraExtraLida[] = []
   const cabecalho = matriz[0] ?? []
 
-  // Mapeia as colunas: quais são dias, qual é a de observação e a que dias ela se refere.
+  // Mapeia as colunas: quais são dias, e qual coluna de pagamento manda em cada dia.
   const colunasDeDia = new Map<number, number>()   // índice da coluna → dia do mês
-  let colunaObs: number | null = null
-  let diasDaObs: number[] = []
+  /**
+   * Dia → coluna que diz se ele foi pago.
+   *
+   * ⚠️ São VÁRIAS colunas de pagamento, não uma. No arquivo do cliente o cabeçalho é
+   * `DIA 01 · DIA 02 · PG · DIA 08 · PG · DIA 15 · DIA 16 · PG …`: **cada `PG` vale para os dias
+   * entre ela e a `PG` anterior**. Uma coluna só valendo para o mês inteiro marcaria como paga
+   * hora extra que ninguém pagou.
+   */
+  const colunaDoPagamento = new Map<number, number>()
+  let grupoAberto: number[] = []
+  /** Quando a coluna de pagamento traz uma data (`PG 01/09`), é o dia em que saiu o dinheiro. */
+  const pagoEmDoDia = new Map<number, string>()
 
   for (let c = 0; c < cabecalho.length; c++) {
     const bruto = cabecalho[c]
     const texto = normalizarTexto(bruto)
     if (!texto || texto === 'NOME' || texto === 'CARGO') continue
 
+    // Coluna de pagamento: fecha o grupo de dias aberto até aqui.
+    // Aceita `OBS. DIAS 01 E 02` (o modelo), `PG` e `PG 01/09` (o arquivo do cliente).
     const obs = diasDaObservacao(bruto)
-    if (obs.length > 0) { colunaObs = c; diasDaObs = obs; continue }
+    if (obs.length > 0 || /^PG\b/.test(texto)) {
+      const alcance = obs.length > 0 ? obs : grupoAberto
+      // `PG 01/09` — o ano não está escrito, e vem do que a importação declarou.
+      const dm = /^PG\s+(\d{1,2})\s*\/\s*(\d{1,2})(?:\s*\/\s*(\d{2,4}))?/i.exec(String(bruto).trim())
+      const quando = dm
+        ? montar(dm[1], dm[2], dm[3] ?? String(opcoes.ano))
+        : lerData(String(bruto).replace(/^\s*PG\s*/i, ''))?.data
+      for (const dia of alcance) {
+        colunaDoPagamento.set(dia, c)
+        if (quando) pagoEmDoDia.set(dia, quando)
+      }
+      grupoAberto = []
+      continue
+    }
 
-    const dia = typeof bruto === 'number' ? bruto : Number(texto)
-    if (Number.isInteger(dia) && dia >= 1 && dia <= 31) colunasDeDia.set(c, dia)
+    // `DIA 01` além do número puro — o número puro fica, é o que o modelo gera.
+    const semPrefixo = texto.replace(/^DIA\s*/, '')
+    const dia = typeof bruto === 'number' ? bruto : Number(semPrefixo)
+    if (Number.isInteger(dia) && dia >= 1 && dia <= 31) {
+      colunasDeDia.set(c, dia)
+      grupoAberto.push(dia)
+    }
   }
 
   if (colunasDeDia.size === 0) {
     return {
       registros: [],
-      problemas: [{ linha: 1, motivo: 'Não encontrei nenhuma coluna de dia. O cabeçalho precisa ter os dias do mês (01, 02, 08…).' }],
+      problemas: [{ linha: 1, motivo: 'Não encontrei nenhuma coluna de dia. O cabeçalho precisa ter os dias do mês (01, 02, 08…).',
+        // A aba INTEIRA fica de fora — é a recusa mais cara que existe aqui.
+        gravidade: 'recusa' }],
       dias: [],
       totaisDeclarados: null,
       mesDaAba: opcoes.nomeDaAba ? mesDoNomeDaAba(opcoes.nomeDaAba) : undefined,
@@ -693,7 +812,6 @@ export function lerHorasExtras(
     // ⚠️ Cargo vazio é aceito: no arquivo real, ÉVERTON SABINO tem R$ 350 e R$ 300 lançados e
     // NENHUM cargo. Recusar a linha perderia dinheiro que a empresa pagou.
     const cargo = String(linha[1] ?? '').trim() || undefined
-    const pago = colunaObs !== null && normalizarTexto(linha[colunaObs]) === 'PG'
 
     for (const [c, dia] of colunasDeDia) {
       const bruto = linha[c]
@@ -703,7 +821,7 @@ export function lerHorasExtras(
       if (valor === null) {
         problemas.push({
           linha: numeroDaLinha, coluna: `dia ${String(dia).padStart(2, '0')}`,
-          motivo: 'Valor de hora extra não numérico.', conteudo: String(bruto),
+          motivo: 'Valor de hora extra não numérico.', conteudo: String(bruto), gravidade: 'recusa',
         })
         continue
       }
@@ -714,20 +832,23 @@ export function lerHorasExtras(
         problemas.push({
           linha: numeroDaLinha, coluna: `dia ${String(dia).padStart(2, '0')}`,
           motivo: `O dia ${dia} não existe em ${String(opcoes.mes).padStart(2, '0')}/${opcoes.ano}.`,
+          gravidade: 'recusa',
         })
         continue
       }
 
-      // O "PG" vale para os dias que o próprio cabeçalho da observação nomeia; para os demais
-      // dias a planilha não diz nada, e "não disse" não é "pago".
-      const estePago = pago && (diasDaObs.length === 0 || diasDaObs.includes(dia))
+      // Cada dia consulta a SUA coluna de pagamento. Dia sem coluna de pagamento nenhuma não é
+      // pago: a planilha não disse nada, e "não disse" não é "pago".
+      const colunaPg = colunaDoPagamento.get(dia)
+      const estePago = colunaPg !== undefined && /^PG\b/.test(normalizarTexto(linha[colunaPg]))
+      const pagoEm = estePago ? pagoEmDoDia.get(dia) : undefined
 
       const base = `${normalizarTexto(nome)}|${data}|${valor.toFixed(2)}`
       const n = (ocorrencias.get(base) ?? 0) + 1
       ocorrencias.set(base, n)
 
       registros.push({
-        nome, cargo, dia, data, valor, pago: estePago,
+        nome, cargo, dia, data, valor, pago: estePago, pagoEm,
         linha: numeroDaLinha, chave: `he|${base}#${n}`,
       })
     }

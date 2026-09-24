@@ -3673,6 +3673,16 @@ export interface FinanceiroEntry {
   // válido sem nenhum deles.
   /** Quem pediu o gasto. É lista porque a planilha tem `DAMIÃO/WELLINGTON` — duas pessoas. */
   solicitantes?: string[]
+  /**
+   * A classificação **como o cliente escreveu**, letra por letra.
+   *
+   * ⚠️ Existe porque `categoria` é um enum de 6 valores e a planilha real usa 13 palavras:
+   * medido no arquivo do cliente, **194 de 219 despesas (89%) caíam em `outro`** e a tela
+   * "Por categoria" respondia "Outro: 89%", que não é resposta nenhuma. `categoria` continua
+   * mandando na DRE (é contabilidade, e o mapa categoria→linha é persistido em `dreConfig`);
+   * é esta palavra que manda nos relatórios do Controle de Caixa.
+   */
+  classificacao?: string
   /** Fim do período, quando a despesa cobre vários dias (`01 A 10/07/2026` na planilha real). */
   dataFim?: string
   /** Já conferido — a coluna "Conferido" da planilha do cliente. */
