@@ -11,6 +11,7 @@ import { test } from 'node:test'
 import {
   realizadoPorFaseNoPeriodo, receitaDaFase, resumoDaMeta, conferirCatalogo,
   diasDoPeriodo, ritmoDiarioDaFase, TEXTO_SEM_RECEITA, precoMedioDoContratoM2,
+  metaVigenteNaData, placarDoDia,
 } from './metaDaObra'
 import { FASES_PADRAO, FASE_POLIMENTO, TOTAL_DOS_PESOS } from '@/features/rdo/data/fasesPadrao'
 import type { ConstructionSite, FaseDaObra, MetaDoPeriodo, RDO } from '@/types'
@@ -317,4 +318,75 @@ test('sem base, devolve null — não zero', () => {
     'serviço sem preço não entra na média')
   assert.equal(precoMedioDoContratoM2(obraCom([{ unidade: 'm²', qtdContrato: 0, valorUnitario: 30 }])), null,
     'quantidade zero dividiria por zero')
+})
+
+// ─── 🔴 A meta que o RDO de hoje está avançando ───────────────────────────────
+
+test('🔴 a meta vigente é a que COBRE a data, não a primeira da lista', () => {
+  const setembro: MetaDoPeriodo = { id: 'set', de: '2026-09-01', ate: '2026-09-30', porFase: {} }
+  const outubro: MetaDoPeriodo = { id: 'out', de: '2026-10-01', ate: '2026-10-31', porFase: {} }
+  assert.equal(metaVigenteNaData([setembro, outubro], '2026-09-15')?.id, 'set')
+  assert.equal(metaVigenteNaData([setembro, outubro], '2026-10-02')?.id, 'out')
+  assert.equal(metaVigenteNaData([setembro, outubro], '2026-08-31'), null, 'fora de todo período')
+  assert.equal(metaVigenteNaData(undefined, '2026-09-15'), null)
+})
+
+test('a borda do período é INCLUSIVA nos dois lados', () => {
+  const m: MetaDoPeriodo = { id: 'm', de: '2026-09-01', ate: '2026-09-30', porFase: {} }
+  assert.equal(metaVigenteNaData([m], '2026-09-01')?.id, 'm')
+  assert.equal(metaVigenteNaData([m], '2026-09-30')?.id, 'm')
+  assert.equal(metaVigenteNaData([m], '2026-10-01'), null)
+})
+
+test('🔴 com períodos SOBREPOSTOS vence o de início mais recente', () => {
+  const amplo: MetaDoPeriodo = { id: 'trimestre', de: '2026-07-01', ate: '2026-09-30', porFase: {} }
+  const curto: MetaDoPeriodo = { id: 'setembro', de: '2026-09-01', ate: '2026-09-30', porFase: {} }
+  // A ordem do array muda; a resposta não pode mudar.
+  assert.equal(metaVigenteNaData([amplo, curto], '2026-09-15')?.id, 'setembro')
+  assert.equal(metaVigenteNaData([curto, amplo], '2026-09-15')?.id, 'setembro',
+    'escolher pela ordem do array faria a MESMA data mostrar metas diferentes conforme a ordem '
+    + 'em que alguém cadastrou — e o RDO do dia seria comparado ora com uma, ora com outra')
+})
+
+// ─── 🔴 O placar do dia ───────────────────────────────────────────────────────
+
+test('🔴 o que está sendo digitado HOJE nunca entra no "feito"', () => {
+  const [l] = placarDoDia([PISO], { ...META, porFase: { 'f-piso': 1000 } },
+    { 'f-piso': 620 }, { 'f-piso': 40 }, '2026-09-15')
+  assert.equal(l.feito, 620, 'o feito vem dos RDO finalizados e nada mais')
+  assert.equal(l.hoje, 40, 'o de hoje é uma coluna à parte')
+  assert.equal(l.falta, 380,
+    'falta é previsto − feito. Descontar o de hoje mostraria como entregue o que ainda nem foi '
+    + 'salvo — e um rascunho pode nunca ser finalizado')
+})
+
+test('🔴 o ritmo olha os dias que RESTAM, não o período inteiro', () => {
+  // 1.000 previstos, 880 feitos, faltam 120. De 26/09 a 30/09 são 5 dias.
+  const [l] = placarDoDia([PISO], { ...META, porFase: { 'f-piso': 1000 } },
+    { 'f-piso': 880 }, {}, '2026-09-26')
+  assert.equal(l.ritmoNecessario, 24, '120 ÷ 5 dias restantes')
+  // Pelo período inteiro (30 dias) daria 4 — um número que tranquiliza e está errado.
+  assert.notEqual(l.ritmoNecessario, 4)
+})
+
+test('antes do período começar, o ritmo usa o período todo', () => {
+  const [l] = placarDoDia([PISO], { ...META, porFase: { 'f-piso': 300 } }, {}, {}, '2026-08-20')
+  assert.equal(l.ritmoNecessario, 10, '300 ÷ 30 dias')
+})
+
+test('🔴 meta batida e fase sem meta não exigem ritmo nenhum', () => {
+  const batida = placarDoDia([PISO], { ...META, porFase: { 'f-piso': 100 } },
+    { 'f-piso': 120 }, {}, '2026-09-15')[0]
+  assert.equal(batida.ritmoNecessario, null, 'quem já passou da meta não tem ritmo a cumprir')
+  assert.equal(batida.falta, -20, 'e a folga aparece como negativo, não como zero')
+
+  const semMeta = placarDoDia([PISO], { ...META, porFase: {} }, { 'f-piso': 50 }, {}, '2026-09-15')[0]
+  assert.equal(semMeta.ritmoNecessario, null, 'sem meta não há o que exigir')
+  assert.equal(semMeta.previsto, 0)
+})
+
+test('só fase ATIVA entra no placar, na ordem do catálogo', () => {
+  const desativada = { ...DEMARCACAO, ativa: false }
+  const r = placarDoDia([SINALIZACAO, PISO, desativada], META, {}, {}, '2026-09-15')
+  assert.deepEqual(r.map((l) => l.fase.id), ['f-piso', 'f-sin'], 'ordenado por `ordem`, sem a inativa')
 })

@@ -277,3 +277,72 @@ export function precoMedioDoContratoM2(site: Pick<ConstructionSite, 'contrato'>)
   if (qtd <= 0) return null
   return deArea.reduce((s, x) => s + (x.qtdContrato || 0) * x.valorUnitario, 0) / qtd
 }
+
+// ─── Qual meta o dia de hoje está avançando ───────────────────────────────────
+
+/**
+ * A meta cujo período cobre esta data.
+ *
+ * ⚠️ Com períodos SOBREPOSTOS devolve o de início mais recente. Escolher pela ordem do array faria
+ * a mesma data mostrar metas diferentes conforme a ordem em que alguém cadastrou — e o RDO do dia
+ * passaria a ser comparado ora com uma, ora com outra, sem nada na tela explicando.
+ */
+export function metaVigenteNaData(
+  metas: readonly MetaDoPeriodo[] | undefined,
+  data: string,
+): MetaDoPeriodo | null {
+  const cobrem = (metas ?? []).filter((m) => m.de <= data && data <= m.ate)
+  if (cobrem.length === 0) return null
+  return [...cobrem].sort((a, b) => b.de.localeCompare(a.de))[0]
+}
+
+/** Uma fase do placar do dia: a meta, o que já foi feito, e o que está sendo digitado AGORA. */
+export interface LinhaDoPlacar {
+  fase: FaseDaObra
+  previsto: number
+  /** Dos RDO FINALIZADOS do período. Rascunho não conta. */
+  feito: number
+  /** O que está no formulário neste instante — ainda não salvo. */
+  hoje: number
+  /** `previsto − feito`. Não desconta o de hoje: ele ainda não é entrega. */
+  falta: number
+  /** Quanto por dia, no que RESTA do período, para bater a meta. `null` quando não há o que exigir. */
+  ritmoNecessario: number | null
+}
+
+/**
+ * O placar que o RDO mostra enquanto a pessoa preenche.
+ *
+ * ⚠️ **`hoje` é coluna à parte, e nunca soma em `feito`.** O realizado vem dos RDO finalizados;
+ * juntar o que está sendo digitado faria a meta oscilar a cada tecla e mostraria como entregue o
+ * que ainda não foi salvo — e um RDO em rascunho pode nunca ser finalizado.
+ *
+ * ⚠️ O ritmo olha os dias que RESTAM, não os do período inteiro. No dia 25 de um mês de 30, faltar
+ * 120 m² não é "4 m² por dia": é 20. Dividir pelo período todo é o tipo de número que tranquiliza.
+ */
+export function placarDoDia(
+  fases: readonly FaseDaObra[],
+  meta: MetaDoPeriodo,
+  realizado: Record<string, number>,
+  lancandoHoje: Record<string, number>,
+  hojeISO: string,
+): LinhaDoPlacar[] {
+  const restantes = diasDoPeriodo(hojeISO > meta.de ? hojeISO : meta.de, meta.ate)
+  return [...fases]
+    .filter((f) => f.ativa)
+    .sort((a, b) => a.ordem - b.ordem)
+    .map((fase) => {
+      const previsto = meta.porFase[fase.id] ?? 0
+      const feito = realizado[fase.id] ?? 0
+      const falta = previsto - feito
+      return {
+        fase,
+        previsto,
+        feito,
+        hoje: lancandoHoje[fase.id] ?? 0,
+        falta,
+        // Sem meta não há ritmo a exigir; meta já batida também não.
+        ritmoNecessario: previsto > 0 && falta > 0 && restantes > 0 ? falta / restantes : null,
+      }
+    })
+}

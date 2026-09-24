@@ -141,12 +141,56 @@ test('🔴 o RDO monta a MESMA seção de metas da Torre, não uma cópia', asyn
   assert.match(p, /import \{ MetasDaObraSection \}/)
   assert.match(p, /key=\{`metas-\$\{selectedSite\.id\}`\}/,
     'sem a key o card não remonta ao trocar de obra e grava a meta da obra A dentro da obra B')
-  assert.doesNotMatch(p, /resumoDaMeta|realizadoPorFaseNoPeriodo/,
-    'uma segunda conta da meta dentro do RDO é exatamente como nascem dois números diferentes '
-    + 'para a mesma pergunta')
   assert.match(p, /verMeta && \(/,
     'render condicional: com <details> os filhos montam fechados e a varredura de TODOS os RDO '
     + 'rodaria a cada tecla digitada no formulário')
+  // ⚠️ O placar USA `resumoDaMeta`/`realizadoPorFaseNoPeriodo` — e isso é o certo: são as funções
+  // PURAS do motor da Torre, as mesmas que a Torre chama. O que não pode existir é conta própria.
+  assert.doesNotMatch(p, /function\s+calcularMeta|const\s+metaCalculada\s*=/,
+    'uma segunda IMPLEMENTAÇÃO da meta dentro do RDO é como nascem dois números para a mesma '
+    + 'pergunta; reusar a função pura é o contrário disso')
+})
+
+// ─── 🔴 Por que a Meta não aparecia (24/09/2026) ──────────────────────────────
+
+test('🔴 o RDO SINCRONIZA o store da Torre — sem isso não há obra, e sem obra não há meta', async () => {
+  const p = await ler('./components/RdoCompizzoPanel.tsx')
+  assert.match(p, /useStoreSync\(useTorreStore\)/,
+    'o painel lia `useTorreStore.sites` sem bootstrap: o único lugar que sincroniza aquele store é '
+    + 'ObrasListPanel, então o RDO só enxergava obra se a pessoa tivesse aberto a Torre antes '
+    + 'naquele navegador. O sintoma NÃO era "a meta sumiu" — era "o campo Obra virou caixa de '
+    + 'texto", e ninguém liga uma coisa à outra')
+  assert.match(p, /useStoreSync\(useMaoDeObraStore\)/, 'o de Mão de Obra continua')
+})
+
+test('🔴 "Metas de Produção" é uma SEÇÃO com esse nome, não um botão escondido', async () => {
+  const p = await ler('./components/RdoCompizzoPanel.tsx')
+  assert.match(p, /<Section title="Metas de Produção"/,
+    'era um botão discreto chamado "Visualizar meta" no rodapé de Fases do Dia — e quem procurava '
+    + 'uma seção com este nome não achava, porque o texto só aparecia depois do clique')
+  // O placar fica FORA do toggle: é ele que se acompanha enquanto preenche.
+  assert.match(p, /<PlacarDaMeta/)
+  const secao = p.slice(p.indexOf('<Section title="Metas de Produção"'), p.indexOf('<Section title="Materiais'))
+  assert.ok(secao.indexOf('<PlacarDaMeta') < secao.indexOf('verMeta &&'),
+    'o placar vem ANTES do bloco recolhido — ele é a parte que se vê sem clicar em nada')
+})
+
+test('🔴 o que está sendo digitado NÃO é somado ao realizado', async () => {
+  const p = await ler('./components/RdoCompizzoPanel.tsx')
+  assert.match(p, /placarDoDia\(fasesDaObra, metaDoDia, realizadoDaMeta, lancandoHoje, today\)/,
+    'o digitado entra como argumento PRÓPRIO — somá-lo ao realizado faria a meta oscilar a cada '
+    + 'tecla e mostraria como entregue o que ainda não foi salvo')
+  assert.doesNotMatch(p, /\.\.\.realizadoDaMeta,\s*\.\.\.lancandoHoje/,
+    'fundir os dois mapas é exatamente o atalho que destrói a distinção')
+})
+
+test('🔴 a varredura de todos os RDO é memoizada — o formulário tem trinta campos', async () => {
+  const p = await ler('./components/RdoCompizzoPanel.tsx')
+  const bloco = p.match(/const realizadoDaMeta = useMemo\([\s\S]*?\)\n/)
+  assert.ok(bloco, '`realizadoPorFaseNoPeriodo` precisa estar dentro de um useMemo')
+  assert.doesNotMatch(bloco![0], /producao/,
+    'se `producao` entrar nas dependências, a varredura de TODOS os RDO da empresa roda a cada '
+    + 'tecla digitada')
 })
 
 test('🔴 a permissão das metas continua sendo a da TORRE, mesmo dentro do RDO', async () => {

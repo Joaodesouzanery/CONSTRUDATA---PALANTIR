@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ClipboardList, Plus, Trash2, Printer, Save, FileText, Sun, Cloud,
-  CloudRain, Wrench, Camera, X, ScanText, CheckCircle2, Users, Building2, PackageSearch, Target, ChevronDown, ChevronUp } from 'lucide-react'
+  CloudRain, Wrench, Camera, X, ScanText, CheckCircle2, Users, Building2, PackageSearch, Target, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 import { useRdoStore, AVISO_SEM_PERMISSAO } from '@/store/rdoStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
@@ -16,7 +16,7 @@ import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { FASES_PADRAO } from '../data/fasesPadrao'
-import type { FaseDaObra } from '@/types'
+import type { FaseDaObra, MetaDoPeriodo } from '@/types'
 import { idDaFasePadrao } from '../data/idDaFase'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
@@ -24,10 +24,14 @@ import { faturamento } from '@/features/planejamento/utils/planoExecucao'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { margemPorServico } from '../utils/margemPorServico'
 import { MetasDaObraSection } from '@/features/torre-de-controle/components/MetasDaObraSection'
+import {
+  metaVigenteNaData, placarDoDia, realizadoPorFaseNoPeriodo, resumoDaMeta,
+} from '@/features/torre-de-controle/utils/metaDaObra'
+import { formatarMetragem } from '@/lib/unidadesMedida'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { compressImageToBlob } from '@/lib/imageCompression'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
-import { hojeLocalISO, cn } from '@/lib/utils'
+import { hojeLocalISO, cn, fmtDataBR, formatCurrency } from '@/lib/utils'
 import { uploadRdoPhoto, blobToDataUrl, leanPhotosForPersist, removeRdoPhoto } from '../utils/rdoPhotoStorage'
 import { RdoPhotoImg } from './RdoPhotoImg'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
@@ -134,6 +138,17 @@ export function RdoCompizzoPanel() {
 
   // Funcionários e equipes cadastrados no módulo Mão de Obra (sincroniza ao abrir).
   useStoreSync(useMaoDeObraStore)
+  /**
+   * ⚠️ As OBRAS também, e a falta disto tinha um sintoma que ninguém liga à causa.
+   *
+   * O painel lia `useTorreStore.sites` sem nenhum bootstrap de sincronização — e o único lugar do
+   * app que sincroniza aquele store é `ObrasListPanel`. Ou seja: **o RDO só enxergava obra se a
+   * pessoa tivesse aberto a Torre de Controle antes naquele navegador.** Sem isso `sites` chegava
+   * `[]`, o campo "Obra" virava caixa de texto em vez de lista, `selectedSite` ficava `null` — e a
+   * Meta de Produção, que depende dela, simplesmente não aparecia. Quem reclamou reclamou da meta;
+   * a causa estava três passos antes.
+   */
+  useStoreSync(useTorreStore)
   const workers = useMaoDeObraStore((s) => s.workers)
   const crews = useMaoDeObraStore((s) => s.crews)
   const cltSettings = useMaoDeObraStore((s) => s.cltSettings)
@@ -300,6 +315,48 @@ export function RdoCompizzoPanel() {
 
   /** A meta nasce recolhida: quem lança o RDO está preenchendo o dia, não editando a meta do mês. */
   const [verMeta, setVerMeta] = useState(false)
+
+  // ─── A meta que este RDO está avançando ────────────────────────────────────
+  //
+  // ⚠️ Tudo aqui é derivado e memoizado. `realizadoPorFaseNoPeriodo` varre TODOS os RDO da
+  // empresa; sem o `useMemo` com as dependências certas isso rodaria a cada tecla digitada no
+  // formulário — e o formulário tem umas trinta caixas.
+  const todosRdosDoStore = useRdoStore((s) => s.rdos)
+
+  const metaDoDia = useMemo(
+    () => metaVigenteNaData(selectedSite?.metas, data || today),
+    [selectedSite, data, today],
+  )
+
+  const realizadoDaMeta = useMemo(
+    () => (selectedSite && metaDoDia
+      ? realizadoPorFaseNoPeriodo(todosRdosDoStore, selectedSite.id, metaDoDia.de, metaDoDia.ate)
+      : {}),
+    [todosRdosDoStore, selectedSite, metaDoDia],
+  )
+
+  /** O que está sendo digitado AGORA, por fase. Nunca entra no "feito" — ver `placarDoDia`. */
+  const lancandoHoje = useMemo(() => {
+    const out: Record<string, number> = {}
+    for (const r of producao) {
+      if (!r.faseId) continue
+      const q = parseLocaleNumber(r.quantidade)
+      if (Number.isFinite(q) && q !== 0) out[r.faseId] = (out[r.faseId] ?? 0) + q
+    }
+    return out
+  }, [producao])
+
+  const placar = useMemo(
+    () => (metaDoDia ? placarDoDia(fasesDaObra, metaDoDia, realizadoDaMeta, lancandoHoje, today) : []),
+    [fasesDaObra, metaDoDia, realizadoDaMeta, lancandoHoje, today],
+  )
+
+  const resumoDoPeriodo = useMemo(
+    () => (selectedSite && metaDoDia
+      ? resumoDaMeta(fasesDaObra, metaDoDia, realizadoDaMeta, selectedSite.modoPrecoFases ?? 'peso', selectedSite.precoM2)
+      : null),
+    [fasesDaObra, metaDoDia, realizadoDaMeta, selectedSite],
+  )
 
   const faseNaoApontada = useMemo(
     () => fasesDaObra.find((f) => !producao.some((r) => r.faseId === f.id)),
@@ -1029,7 +1086,30 @@ export function RdoCompizzoPanel() {
                   </div>
                   <input className={inputCls} value={row.quantidade} placeholder="Qtd" inputMode="decimal" onChange={(e) => updateProducao(i, { quantidade: e.target.value })} />
                   <input className={inputCls} value={row.unidade ?? ''} placeholder="m²" list="compizzo-unidades" onChange={(e) => updateProducao(i, { unidade: e.target.value })} />
-                  <input className={inputCls} value={row.quantidadePrevista != null ? String(row.quantidadePrevista) : ''} placeholder="meta" inputMode="decimal" onChange={(e) => updateProducao(i, { quantidadePrevista: parseLocaleNumber(e.target.value) || undefined })} />
+                  <div>
+                    <input className={inputCls} value={row.quantidadePrevista != null ? String(row.quantidadePrevista) : ''} placeholder="meta" inputMode="decimal" onChange={(e) => updateProducao(i, { quantidadePrevista: parseLocaleNumber(e.target.value) || undefined })} />
+                    {/* ⚠️ O ritmo que a META DA OBRA exige desta fase no que RESTA do período — e
+                        um toque para adotá-lo. É a "parte diária": a meta do mês vira o número do
+                        dia, sem ninguém dividir na cabeça. Só aparece quando existe meta e o
+                        número é diferente do que já está digitado. */}
+                    {(() => {
+                      const alvo = row.faseId ? placar.find((l) => l.fase.id === row.faseId) : undefined
+                      const r = alvo?.ritmoNecessario
+                      if (r == null) return null
+                      const arredondado = Math.round(r * 10) / 10
+                      if (row.quantidadePrevista === arredondado) return null
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => updateProducao(i, { quantidadePrevista: arredondado })}
+                          title={`A meta do período pede ${arredondado} ${alvo!.fase.unidade} por dia no tempo que resta. Toque para usar este número.`}
+                          className="mt-0.5 w-full truncate text-left text-[10px] text-[#1f6fd1] hover:text-[#4d9bff]"
+                        >
+                          → meta pede {arredondado.toLocaleString('pt-BR')}/dia
+                        </button>
+                      )
+                    })()}
+                  </div>
                   <button type="button" onClick={() => setProducao((rows) => rows.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-300 flex items-center justify-center pt-2"><Trash2 size={14} /></button>
                 </div>
               )
@@ -1058,50 +1138,6 @@ export function RdoCompizzoPanel() {
             uma obra selecionada.
           </p>
 
-          {/* ─── Metas de Produção ─────────────────────────────────────────────────────────
-              ⚠️ É a MESMA seção da Torre de Controle, não uma cópia. Editar aqui grava em
-              `useTorreStore.sites` pelo `updateSite`, e a Torre relê do mesmo store — os dois
-              lados são a mesma verdade porque não existe cópia local em lugar nenhum. Uma segunda
-              implementação da meta dentro do RDO é exatamente como nascem dois números diferentes
-              para a mesma pergunta.
-
-              ⚠️ Render CONDICIONAL, não `<details>`/`hidden`: `<details>` monta os filhos mesmo
-              fechado, e aí a varredura de TODOS os RDO da empresa (`realizadoPorFaseNoPeriodo`)
-              rodaria a cada tecla digitada neste formulário, com a meta escondida. */}
-          <div className="mt-4 border-t border-[#525252] pt-3">
-            {!selectedSite ? (
-              <p className="text-[11px] text-[#6b6b6b]">Selecione a obra para ver a meta de produção.</p>
-            ) : (
-              <>
-                <button
-                  type="button" onClick={() => setVerMeta((v) => !v)}
-                  className="flex w-full items-center gap-2 rounded-lg border border-[#525252] px-3 py-2 text-xs text-[#a3a3a3] hover:border-[#1f6fd1]/50 hover:text-[#f5f5f5]"
-                >
-                  <Target size={13} className="text-[#1f6fd1]" />
-                  <span className="font-medium">{verMeta ? 'Ocultar meta' : 'Visualizar meta'}</span>
-                  <span className="ml-auto text-[10px] text-[#6b6b6b]">
-                    {(selectedSite.metas?.length ?? 0) === 0 ? 'nenhuma meta cadastrada'
-                      : `${selectedSite.metas!.length} período(s)`}
-                  </span>
-                  {verMeta ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                </button>
-
-                {verMeta && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-[10px] leading-4 text-[#6b6b6b]">
-                      ⚠️ O <strong>Feito</strong> abaixo vem dos RDO <strong>finalizados</strong>{' '}
-                      desta obra. O que você está digitando agora só entra na conta depois de
-                      finalizar — rascunho não conta.
-                    </p>
-                    {/* ⚠️ `key` OBRIGATÓRIA. O card guarda a meta em edição num `useState` interno;
-                        sem remontar ao trocar de obra, o `onSalvar` grava a meta da obra A dentro
-                        do `site.metas` da obra B. É o mesmo remendo que a Torre já documenta. */}
-                    <MetasDaObraSection key={`metas-${selectedSite.id}`} site={selectedSite} />
-                  </div>
-                )}
-              </>
-            )}
-          </div>
           {fasesDaObra.length === 0 && (
             <p className="mt-2 rounded-lg border border-[#eab308]/40 bg-[#eab308]/10 px-3 py-2 text-[10px] leading-4 text-[#fbbf24]">
               ⚠️ Esta obra ainda não tem fases cadastradas — a lista acima está usando as oito
@@ -1168,6 +1204,55 @@ export function RdoCompizzoPanel() {
         </Section>
 
         {/* Materiais */}
+        {/* ─── Metas de Produção ─────────────────────────────────────────────────────────────
+            ⚠️ Seção PRÓPRIA, com este nome. Antes era um botão discreto chamado "Visualizar
+            meta" no rodapé de "Fases do Dia" — e quem procurava uma seção chamada "Metas de
+            Produção" não a encontrava, porque o texto só aparecia depois do clique.
+
+            ⚠️ E é a MESMA seção da Torre de Controle, não uma cópia: editar aqui grava pelo
+            mesmo `updateSite`, e a Torre relê do mesmo store. Uma segunda implementação da meta
+            dentro do RDO é exatamente como nascem dois números para a mesma pergunta. */}
+        <Section title="Metas de Produção" icon={<Target size={16} className="text-[#1f6fd1]" />}>
+          {!selectedSite ? (
+            <p className="text-[11px] leading-5 text-[#a3a3a3]">
+              Selecione a obra, no alto desta tela, para ver a meta de produção dela.
+            </p>
+          ) : !metaDoDia ? (
+            <div className="space-y-2">
+              <p className="text-[11px] leading-5 text-[#a3a3a3]">
+                Esta obra ainda não tem meta cadastrada para <strong>{fmtDataBR(data || today)}</strong>.
+                Crie o período abaixo — ele vale aqui e na Torre de Controle, é o mesmo cadastro.
+              </p>
+              <MetasDaObraSection key={`metas-${selectedSite.id}`} site={selectedSite} />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <PlacarDaMeta
+                meta={metaDoDia} placar={placar} resumo={resumoDoPeriodo}
+                precoM2={selectedSite.precoM2}
+              />
+
+              {/* ⚠️ Render CONDICIONAL, nunca `<details>`: `<details>` monta os filhos mesmo
+                  fechado, e a seção da Torre refaz a varredura de todos os RDO ao montar. */}
+              <button
+                type="button" onClick={() => setVerMeta((v) => !v)}
+                className="flex w-full items-center gap-2 rounded-lg border border-[#525252] px-3 py-2 text-xs text-[#a3a3a3] hover:border-[#1f6fd1]/50 hover:text-[#f5f5f5]"
+              >
+                <Pencil size={12} />
+                <span className="font-medium">{verMeta ? 'Ocultar a edição da meta' : 'Editar a meta do período'}</span>
+                <span className="ml-auto text-[10px] text-[#6b6b6b]">
+                  {(selectedSite.metas?.length ?? 0)} período(s) cadastrado(s)
+                </span>
+                {verMeta ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              </button>
+
+              {verMeta && (
+                <MetasDaObraSection key={`metas-${selectedSite.id}`} site={selectedSite} />
+              )}
+            </div>
+          )}
+        </Section>
+
         <Section title="Materiais Utilizados" icon={<ClipboardList size={16} className="text-[#1f6fd1]" />}>
           {/* Puxar item do módulo Suprimentos (estoque filtrado pela obra do RDO) */}
           {estoqueDaObra.length > 0 && (
@@ -1451,3 +1536,120 @@ function Checkbox({ checked, label, onChange }: { checked: boolean; label: strin
   )
 }
 
+
+// ─── O placar da meta ─────────────────────────────────────────────────────────
+
+/**
+ * A meta do período contra o que já foi feito — e contra o que está sendo digitado agora.
+ *
+ * ⚠️ **"Hoje" é uma coluna à parte, e é de propósito.** O "Feito" vem dos RDO FINALIZADOS
+ * (`realizadoPorFaseNoPeriodo` ignora rascunho). Somar o que está na tela faria a meta oscilar a
+ * cada tecla e mostraria como entregue o que ainda não foi salvo — e um rascunho pode nunca ser
+ * finalizado. Separadas, as duas colunas respondem perguntas diferentes: "onde a obra está" e
+ * "quanto eu estou lançando agora".
+ *
+ * ⚠️ O total nunca é um número só: piso é m², demarcação é metro linear, sinalização é unidade.
+ * O único número que junta tudo legitimamente é o R$.
+ */
+function PlacarDaMeta({ meta, placar, resumo, precoM2 }: {
+  meta: MetaDoPeriodo
+  placar: ReturnType<typeof placarDoDia>
+  resumo: ReturnType<typeof resumoDaMeta> | null
+  precoM2?: number
+}) {
+  const comAlgo = placar.filter((l) => l.previsto > 0 || l.feito > 0 || l.hoje > 0)
+  const nHoje = placar.filter((l) => l.hoje > 0).length
+
+  return (
+    <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-3">
+      <p className="mb-2 text-[11px] text-[#a3a3a3]">
+        {meta.rotulo ? <strong className="text-[#e5e5e5]">{meta.rotulo} · </strong> : null}
+        {fmtDataBR(meta.de)} a {fmtDataBR(meta.ate)}
+        {resumo ? <> · <span className="text-[#6b6b6b]">{resumo.dias} dias</span></> : null}
+      </p>
+
+      {resumo && (
+        <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-[#a3a3a3]">Meta do período</p>
+            <p className="text-sm font-bold tabular-nums text-[#f5f5f5]">{formatarMetragem(resumo.previsto) || '—'}</p>
+            {resumo.receitaPrevista > 0 && (
+              <p className="text-[11px] font-semibold tabular-nums text-[#4ade80]">{formatCurrency(resumo.receitaPrevista)}</p>
+            )}
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-[#a3a3a3]">Já feito</p>
+            <p className="text-sm font-bold tabular-nums text-[#f5f5f5]">{formatarMetragem(resumo.realizado) || '—'}</p>
+            {resumo.receita > 0 && (
+              <p className="text-[11px] font-semibold tabular-nums text-[#4ade80]">{formatCurrency(resumo.receita)}</p>
+            )}
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-[#a3a3a3]">% da meta</p>
+            {/* ⚠️ `—`, nunca 0%: sem meta cadastrada não existe percentual, e "0%" leria como atraso. */}
+            <p className="text-sm font-bold tabular-nums text-[#f5f5f5]">
+              {resumo.receitaPrevista > 0
+                ? `${Math.round((resumo.receita / resumo.receitaPrevista) * 100)}%`
+                : '—'}
+            </p>
+            {resumo.fasesSemReceita > 0 && (
+              <p className="text-[10px] text-[#fbbf24]">{resumo.fasesSemReceita} fase(s) sem preço</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {comAlgo.length === 0 ? (
+        <p className="text-[11px] text-[#6b6b6b]">
+          Nenhuma fase com meta neste período. Cadastre as quantidades em “Editar a meta do período”.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-[11px]">
+            <thead>
+              <tr className="border-b border-[#525252] text-left text-[#a3a3a3]">
+                <th className="py-1 pr-2 font-medium">Fase</th>
+                <th className="px-2 py-1 text-right font-medium">Meta</th>
+                <th className="px-2 py-1 text-right font-medium">Feito</th>
+                <th className="px-2 py-1 text-right font-medium">Hoje</th>
+                <th className="px-2 py-1 text-right font-medium">Falta</th>
+                <th className="px-2 py-1 text-right font-medium">Ritmo/dia</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comAlgo.map((l) => (
+                <tr key={l.fase.id} className="border-b border-[#3f3f3f]">
+                  <td className="py-1 pr-2 text-[#e5e5e5]">{l.fase.ordem}. {l.fase.nome}</td>
+                  <td className="px-2 py-1 text-right tabular-nums text-[#c9c9c9]">
+                    {l.previsto > 0 ? `${l.previsto.toLocaleString('pt-BR')} ${l.fase.unidade}` : '—'}
+                  </td>
+                  <td className="px-2 py-1 text-right tabular-nums text-[#c9c9c9]">{l.feito.toLocaleString('pt-BR')}</td>
+                  {/* O que está na tela agora — em azul, para não se confundir com o realizado. */}
+                  <td className="px-2 py-1 text-right tabular-nums" style={{ color: l.hoje > 0 ? '#93c5fd' : '#6b6b6b' }}>
+                    {l.hoje > 0 ? l.hoje.toLocaleString('pt-BR') : '—'}
+                  </td>
+                  <td className="px-2 py-1 text-right tabular-nums" style={{ color: l.falta > 0 ? '#fbbf24' : '#4ade80' }}>
+                    {l.falta > 0 ? l.falta.toLocaleString('pt-BR') : 'batida'}
+                  </td>
+                  <td className="px-2 py-1 text-right tabular-nums text-[#a3a3a3]">
+                    {l.ritmoNecessario != null
+                      ? l.ritmoNecessario.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+                      : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="mt-2 text-[10px] leading-4 text-[#6b6b6b]">
+        <strong>Feito</strong> vem dos RDO <strong>finalizados</strong> desta obra no período.
+        {nHoje > 0
+          ? ` A coluna Hoje é o que você está lançando agora, em ${nHoje} fase(s) — ela só passa para o Feito depois de finalizar este RDO.`
+          : ' A coluna Hoje mostra o que você lançar nas fases acima, antes mesmo de salvar.'}
+        {precoM2 != null ? ` O R$ usa o preço de ${formatCurrency(precoM2)}/m² da obra.` : ''}
+      </p>
+    </div>
+  )
+}
